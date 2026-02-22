@@ -1,0 +1,461 @@
+% ============================================================
+%  Research Paper Template — Based on Meta JEPA Paper Series
+%  Compatible with: Overleaf, pdflatex, xelatex
+%  Usage: Upload this .tex file to Overleaf and compile.
+% ============================================================
+
+\documentclass[10pt, twocolumn]{article}
+
+% ── Packages ────────────────────────────────────────────────
+\usepackage[margin=0.75in, top=1in, bottom=1in]{geometry}
+\usepackage{amsmath, amssymb, amsthm}
+\usepackage{graphicx}
+\usepackage{booktabs}           % Professional tables
+\usepackage{multirow}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{enumitem}
+\usepackage{microtype}          % Better text justification
+\usepackage{natbib}             % Citations: \citep{}, \citet{}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{mathtools}
+\usepackage{bbm}                % \mathbbm{1} indicator function
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+
+% ── Hyperlink styling ───────────────────────────────────────
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue!70!black,
+    citecolor=green!50!black,
+    urlcolor=blue!70!black
+}
+
+% ── Custom commands ─────────────────────────────────────────
+\newcommand{\methodname}{METHOD}        % <-- Change to your method name
+\newcommand{\eg}{\textit{e.g.}}
+\newcommand{\ie}{\textit{i.e.}}
+\newcommand{\cf}{\textit{cf.}}
+\newcommand{\etal}{\textit{et al.}}
+\newcommand{\bx}{\mathbf{x}}
+\newcommand{\by}{\mathbf{y}}
+\newcommand{\bz}{\mathbf{z}}
+\newcommand{\bs}{\mathbf{s}}
+\newcommand{\sg}{\operatorname{sg}}     % stop-gradient
+\newcommand{\ema}{\bar{\theta}}         % EMA weights
+\DeclareMathOperator*{\argmin}{arg\,min}
+
+% ── Title block ─────────────────────────────────────────────
+\title{
+    \textbf{Your Paper Title: A Short, Punchy Tagline} \\[0.4em]
+    \large \textit{Optional subtitle or version tag}
+}
+
+\author{
+    Author One$^{1}$ \quad Author Two$^{1,2}$ \quad Author Three$^{2}$ \\[0.4em]
+    {\small $^{1}$Your Institution \quad $^{2}$Another Institution} \\[0.2em]
+    {\small \texttt{\{author1, author2\}@institution.edu}}
+}
+
+\date{}  % Leave empty; date managed by conference/journal
+
+% ============================================================
+\begin{document}
+\maketitle
+
+% ── Abstract ────────────────────────────────────────────────
+\begin{abstract}
+    % ~150–200 words. Cover: (1) problem, (2) gap in prior work,
+    % (3) your method in one sentence, (4) 2–3 headline results with numbers.
+    We present \methodname{}, a method that ... 
+    Unlike prior approaches that operate in pixel/token space, 
+    \methodname{} predicts representations in an abstract embedding space,
+    enabling ... 
+    Through extensive experiments, we demonstrate that \methodname{} achieves 
+    \textbf{XX.X\%} accuracy on Benchmark A, outperforming the previous 
+    state-of-the-art by \textbf{X.X\%}, while being \textbf{Nx} more 
+    computationally efficient.
+\end{abstract}
+
+% ============================================================
+\section{Introduction}
+\label{sec:intro}
+
+% Paragraph 1: Situate the problem
+Self-supervised learning has emerged as a powerful paradigm for ... 
+However, dominant approaches can be divided into two families, 
+each with a fundamental limitation~\citep{lecun2022path}.
+\textit{Generative methods}~\citep{he2022masked} reconstruct inputs in pixel 
+or token space, requiring the model to dedicate capacity to irrelevant 
+low-level details.
+\textit{Joint-embedding methods}~\citep{chen2021empirical} enforce 
+view-invariance through hand-crafted augmentations, introducing strong 
+inductive biases that limit generality.
+
+% Paragraph 2: Introduce your method
+In this work, we introduce \methodname{} (\textbf{Acronym}), a 
+\textit{joint-embedding predictive architecture}~\citep{lecun2022path} 
+for [modality].
+The core idea is to predict the \textit{representation} of a target signal 
+$\by$ from a context signal $\bx$, using a predictor conditioned on a 
+variable $\bz$ that specifies the transformation between them.
+By operating in representation space, \methodname{} avoids the need to 
+model irrelevant details while retaining rich semantic structure.
+
+% Contributions — bulleted list (JEPA paper standard)
+\paragraph{Contributions.} We summarize our main contributions:
+\begin{itemize}[leftmargin=*, itemsep=2pt]
+    \item \textbf{[Architecture]:} We propose \methodname{}, which ... 
+          without relying on hand-crafted augmentations or pixel reconstruction.
+    
+    \item \textbf{[Results]:} \methodname{} achieves state-of-the-art 
+          performance on [Benchmark], surpassing [Baseline] by X\% under a 
+          frozen evaluation protocol.
+    
+    \item \textbf{[Efficiency]:} \methodname{} is Nx more efficient than 
+          [Baseline] at the same model scale, requiring only [N] GPU hours to 
+          pretrain a [ViT-Size] on [Dataset].
+\end{itemize}
+
+% Paper roadmap (JEPA papers always include this)
+The remainder of this paper is organized as follows.
+Section~\ref{sec:background} describes the theoretical background and 
+positions \methodname{} relative to prior approaches.
+Section~\ref{sec:method} details the proposed method.
+Section~\ref{sec:experiments} presents empirical results.
+Section~\ref{sec:related} surveys related work.
+Section~\ref{sec:conclusion} concludes.
+
+% ============================================================
+\section{Background}
+\label{sec:background}
+
+% Frame with a unifying theory (JEPA uses Energy-Based Models)
+We frame self-supervised learning through the lens of 
+\textit{Energy-Based Models} (EBMs)~\citep{lecun2006tutorial}, 
+where the objective is to assign low energy to compatible 
+input pairs $(\bx, \by)$ and high energy to incompatible ones.
+
+\paragraph{Joint-Embedding Architectures (JEA).}
+JEAs~\citep{chen2021empirical,caron2021emerging} learn to output similar 
+embeddings for compatible inputs by minimizing a contrastive or 
+non-contrastive loss.
+While effective for semantic tasks, they require hand-crafted augmentations 
+to define compatibility, introducing domain-specific inductive biases.
+
+\paragraph{Generative Architectures.}
+Generative methods~\citep{he2022masked,bao2022beit} reconstruct a target 
+signal $\by$ from a masked context $\bx$ in input space.
+This forces the model to model all pixel-level details, including 
+stochastic or irrelevant information, reducing representational efficiency.
+
+\paragraph{Joint-Embedding Predictive Architectures (JEPA).}
+\methodname{} instantiates the JEPA framework~\citep{lecun2022path} for 
+[modality].
+Like generative architectures, it uses masking to define compatible 
+pairs; like joint-embedding architectures, the loss is applied in 
+\textit{embedding space}, not input space.
+This combination avoids both the rigid inductive bias of JEAs and the 
+pixel-level reconstruction burden of generative methods.
+
+% ============================================================
+\section{Method}
+\label{sec:method}
+
+\subsection{Training Objective}
+\label{sec:objective}
+
+Given a target signal $\by$ and a context signal $\bx$ derived from the 
+same input, \methodname{} minimizes the prediction error in representation 
+space:
+%
+\begin{equation}
+    \minimize_{\theta, \phi} \;
+    \bigl\| P_\phi\bigl(E_\theta(\bx),\, \bz\bigr)
+    - \sg\bigl(E_{\ema}(\by)\bigr) \bigr\|_1,
+    \label{eq:objective}
+\end{equation}
+%
+where $E_\theta(\cdot)$ is an encoder, $P_\phi(\cdot)$ is a predictor 
+network, $\bz$ is a conditioning variable (\eg, positional tokens or 
+actions), $\sg(\cdot)$ denotes a stop-gradient operation, and 
+$E_{\ema}(\cdot)$ is an exponential moving average (EMA) copy of the 
+encoder used to produce prediction targets and prevent representation 
+collapse~\citep{grill2020bootstrap}.
+
+\subsection{Architecture}
+\label{sec:architecture}
+
+\methodname{} is composed of three components; see Figure~\ref{fig:arch}.
+
+\begin{table}[h]
+\centering
+\small
+\caption{Architecture components of \methodname{}.}
+\label{tab:arch}
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Component} & \textbf{Role} & \textbf{Implementation} \\
+\midrule
+Encoder $E_\theta$     & Encodes masked context $\bx$  & ViT-[Size] \\
+EMA Encoder $E_{\ema}$ & Produces prediction targets   & EMA of $E_\theta$ \\
+Predictor $P_\phi$     & Maps context $\to$ target rep & Narrow ViT \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Encoder.}
+We parameterize $E_\theta$ as a Vision Transformer 
+(ViT)~\citep{dosovitskiy2020image}.
+The encoder processes only the unmasked (context) tokens, 
+following the efficient design of~\citet{he2022masked}.
+
+\paragraph{Predictor.}
+The predictor $P_\phi$ is a narrow transformer that takes as input the 
+encoder outputs and a set of learnable mask tokens $\bz$ 
+containing positional embeddings of the masked patches.
+The predictor outputs a predicted embedding for each mask token.
+
+\paragraph{EMA Target Encoder.}
+To prevent representation collapse, we do not backpropagate through 
+the target encoder. Instead, its weights $\ema$ are updated as an 
+exponential moving average of $\theta$:
+$\ema \leftarrow \tau \ema + (1-\tau)\theta$,
+where $\tau$ is a momentum parameter that increases from $\tau_0$ to $1$
+over training.
+
+\subsection{Prediction Task and Masking Strategy}
+\label{sec:masking}
+
+% Describe how inputs are tokenized and masked
+\paragraph{Tokenization.}
+A [image / video clip] is divided into a grid of non-overlapping 
+$[P \times P]$ patches (or $[T \times P \times P]$ spatio-temporal tubelets 
+for video), each treated as a token.
+
+\paragraph{Masking.}
+We define the context $\bx$ and target $\by$ by applying a 
+\textit{multi-block masking} strategy~\citep{assran2023self}:
+%
+\begin{itemize}[leftmargin=*, itemsep=2pt]
+    \item \textbf{Short-range masks:} Union of $N_s$ blocks, each covering 
+          $\sim$X\% of the input. Encourages local feature prediction.
+    \item \textbf{Long-range masks:} Union of $N_l$ blocks, each covering 
+          $\sim$Y\% of the input. Forces the model to predict from 
+          distant context, discouraging trivial solutions.
+\end{itemize}
+%
+This masking strategy results in an average masking ratio of $\sim$Z\%, 
+ensuring the prediction task is non-trivial and requires semantic reasoning.
+
+\subsection{Collapse Prevention}
+\label{sec:collapse}
+
+Equation~\eqref{eq:objective} admits a trivial solution where 
+$E_\theta$ outputs a constant vector regardless of input.
+We prevent this via the EMA + stop-gradient design 
+(Section~\ref{sec:architecture}), following the analysis 
+of~\citet{grill2020bootstrap}.
+Concretely, the optimal predictor under the $\ell_1$ loss satisfies
+$P^*(E_\theta(\bx)) = \operatorname{median}(\by \mid E_\theta(\bx))$,
+which implies the encoder must capture maximal information about $\by$ 
+to minimize the median absolute deviation of the target.
+
+\begin{figure}[t]
+    \centering
+    % Replace with your architecture diagram
+    \includegraphics[width=\linewidth]{figures/architecture.pdf}
+    \caption{
+        \textbf{\methodname{} Architecture.} 
+        The context encoder processes the masked input $\bx$ and passes 
+        embeddings to the predictor. The predictor, conditioned on 
+        positional tokens $\bz$, outputs predicted embeddings which are 
+        regressed against the EMA encoder outputs using an $\ell_1$ loss.
+    }
+    \label{fig:arch}
+\end{figure}
+
+% ============================================================
+\section{Experiments}
+\label{sec:experiments}
+
+\subsection{Setup}
+\label{sec:setup}
+
+\paragraph{Pretraining data.}
+We pretrain \methodname{} on [Dataset Name], consisting of [N] 
+[images/videos] sourced from [source].
+[Describe any data filtering or preprocessing.]
+
+\paragraph{Evaluation protocol.}
+We evaluate using a \textit{frozen backbone} protocol: encoder weights are 
+frozen after pretraining and a lightweight task-specific head 
+(\eg, a 4-layer attentive probe) is trained on top.
+This isolates the quality of the learned representation from task-specific 
+fine-tuning.
+
+\subsection{Main Results}
+\label{sec:main_results}
+
+Table~\ref{tab:main} reports results on [Benchmark Suite].
+\methodname{} outperforms all baselines under the frozen evaluation protocol 
+and is competitive under full fine-tuning, while requiring significantly 
+less pretraining compute.
+
+\begin{table}[h]
+\centering
+\small
+\caption{
+    \textbf{Main Results.}
+    Frozen evaluation (attentive probe) on [Benchmarks].
+    $\dagger$ = fine-tuned. Best frozen result in \textbf{bold}.
+}
+\label{tab:main}
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+\textbf{Method} & \textbf{Arch.} & \textbf{Bench A} & \textbf{Bench B} & \textbf{Avg.} \\
+\midrule
+Baseline 1~\citep{he2022masked}  & ViT-L & 00.0 & 00.0 & 00.0 \\
+Baseline 2~\citep{caron2021emerging} & ViT-L & 00.0 & 00.0 & 00.0 \\
+\midrule
+\methodname{} (ours)             & ViT-L & \textbf{00.0} & \textbf{00.0} & \textbf{00.0} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Ablation Studies}
+\label{sec:ablations}
+
+Table~\ref{tab:ablations} isolates the contribution of each design choice.
+
+\begin{table}[h]
+\centering
+\small
+\caption{
+    \textbf{Ablations} on [Benchmark A].
+    Each row removes or replaces one component of \methodname{}.
+}
+\label{tab:ablations}
+\begin{tabular}{@{}lcc@{}}
+\toprule
+\textbf{Variant} & \textbf{Change} & \textbf{Bench A} \\
+\midrule
+Full \methodname{}     & —                          & 00.0 \\
+w/o multi-block mask   & Single-block masking       & -X.X \\
+w/o EMA target         & Direct backprop            & collapse \\
+Pixel targets          & Reconstruct in input space & -X.X \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Key findings.}
+\textbf{(i)} Multi-block masking is critical: replacing it with single-block 
+masking degrades performance by X.X\%, as the model can exploit local 
+texture cues.
+\textbf{(ii)} Predicting in representation space consistently outperforms 
+pixel-space reconstruction, confirming the benefit of abstracting away 
+low-level details.
+\textbf{(iii)} The EMA target encoder is essential; removing the stop-gradient 
+leads to immediate representation collapse.
+
+\subsection{Efficiency Analysis}
+\label{sec:efficiency}
+
+Compared to [baseline], \methodname{} requires Nx fewer GPU hours to 
+pretrain a [ViT-Size] to the same downstream performance, 
+because predicting in representation space significantly reduces the total 
+computation per gradient step.
+
+% ============================================================
+\section{Related Work}
+\label{sec:related}
+
+\paragraph{Self-supervised visual representation learning.}
+[Contrastive and non-contrastive methods...] 
+\citep{chen2021empirical, caron2021emerging, grill2020bootstrap, bardes2022vicreg}.
+Unlike these approaches, \methodname{} does not require ... 
+
+\paragraph{Masked image / video modeling.}
+[MAE, BEiT, VideoMAE, etc...] 
+\citep{he2022masked, bao2022beit}.
+While these methods predict in pixel space, \methodname{} predicts in 
+representation space, eliminating the need to model ...
+
+\paragraph{Joint-embedding predictive architectures.}
+[I-JEPA, V-JEPA, data2vec, etc...] 
+\citep{assran2023self, bardes2024vjepa, baevski2022data2vec}.
+\methodname{} extends this line of work to [new modality / scale / task] 
+by introducing [key novel element].
+
+% ============================================================
+\section{Conclusion}
+\label{sec:conclusion}
+
+We introduced \methodname{}, a joint-embedding predictive architecture 
+for [modality / task].
+By predicting in representation space using a masked prediction task and 
+an EMA target encoder, \methodname{} learns strong semantic representations 
+without hand-crafted augmentations or pixel-level reconstruction.
+Experiments demonstrate state-of-the-art performance on [benchmarks] 
+under a frozen evaluation protocol, along with significant efficiency gains 
+over prior work.
+
+\paragraph{Limitations.}
+[Limitation 1: e.g., performance on tasks requiring low-level detail.]
+[Limitation 2: e.g., sensitivity to masking hyperparameters.]
+
+\paragraph{Future work.}
+A natural extension of \methodname{} is to [next modality / scale / task].
+We also plan to [second future direction].
+
+% ============================================================
+\bibliographystyle{abbrvnat}
+\bibliography{references}   % <- references.bib file
+
+% ============================================================
+\appendix
+\section{Implementation Details}
+\label{app:impl}
+
+\paragraph{Optimizer.}
+We use AdamW~\citep{loshchilov2017decoupled} with 
+$\beta_1 = 0.9$, $\beta_2 = 0.999$, weight decay $= 0.05$.
+The learning rate follows a cosine schedule with a linear warmup of 
+[N] iterations, peaking at $[lr]$ and decaying to $[lr_{\min}]$.
+
+\paragraph{Architecture hyperparameters.}
+\begin{table}[h]
+\centering
+\small
+\caption{Hyperparameters for \methodname{}.}
+\begin{tabular}{@{}lcc@{}}
+\toprule
+\textbf{Hyperparameter} & \textbf{Encoder} & \textbf{Predictor} \\
+\midrule
+Depth           & 24  & 12 \\
+Hidden dim      & 1024 & 384 \\
+Heads           & 16  & 6 \\
+Patch size      & 16  & — \\
+EMA $\tau_0$    & \multicolumn{2}{c}{0.996} \\
+EMA $\tau_{\text{end}}$ & \multicolumn{2}{c}{1.0} \\
+Masking ratio   & \multicolumn{2}{c}{$\sim$90\%} \\
+Batch size      & \multicolumn{2}{c}{2048} \\
+Training iters  & \multicolumn{2}{c}{[N]K} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Additional Results}
+\label{app:results}
+
+[Extended benchmark tables, per-dataset breakdowns, additional ablations.]
+
+\section{Qualitative Visualizations}
+\label{app:viz}
+
+[Predictor attention maps, representation t-SNE plots, failure cases.]
+
+\end{document}
