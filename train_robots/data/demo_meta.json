@@ -1,0 +1,9 @@
+{
+  "n_episodes": 500,
+  "max_steps": 200,
+  "n_samples": 100000,
+  "expert_success_rate": 0.216,
+  "embedding_dim": 1024,
+  "action_dim": 2,
+  "dataset_mb": 409.6
+}

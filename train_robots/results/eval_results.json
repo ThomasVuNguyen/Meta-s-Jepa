@@ -1,0 +1,18 @@
+{
+  "vjepa_bc": {
+    "success_rate": 0.2,
+    "mean_reward": 66.4,
+    "n_episodes": 100
+  },
+  "expert": {
+    "success_rate": 0.2,
+    "mean_reward": 67.6,
+    "n_episodes": 100
+  },
+  "random": {
+    "success_rate": 0.02,
+    "mean_reward": 0.0,
+    "n_episodes": 60,
+    "note": "partial — eval timed out at ep 60, ~1-2% success"
+  }
+}
