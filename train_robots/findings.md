@@ -74,26 +74,95 @@ The reacher task primarily requires XY spatial awareness — exactly where V-JEP
 
 ---
 
-## Next: Phase 2 — Online RL (SAC)
+## Phase 2 — Exploration Data Collection
 
-BC is fundamentally limited by the quality of demonstrations. The next step is **Soft Actor-Critic (SAC)** running online in dm_control — it learns from the reward signal directly, not from expert imitation.
+**Date:** 2026-02-25 | **Compute:** Modal A10G, ~40 min, ~$0.75
 
-**Why this matters:**
-- SAC can explore actions the P-controller never took and discover better strategies
-- Target success rate: **60-80%** (vs 20% expert ceiling)
-- Runs entirely on Modal A10G overnight (~4 hrs, ~$5 of credits)
+Instead of pursuing SAC directly, we pivoted to building a **world model** — teaching the system to predict the future in latent space, then planning by imagining.
 
-### Phase 2 architecture
+**Data pipeline:** Modified `generate_and_encode_modal.py` with epsilon-greedy noise (ε=0.3) injected into the P-controller. 30% of actions are random, ensuring the dataset covers diverse (including "wrong") transitions.
+
+| Metric | Value |
+|---|---|
+| Episodes | 500 |
+| Steps per episode | 200 |
+| Total transitions | 100,000 |
+| Dataset size | 496 MB |
+| Format | `(z_t, a_t, z_{t+1})` triples |
+
+---
+
+## Phase 3 — Action-Conditioned Dynamics Predictor
+
+**Date:** 2026-02-25 | **Compute:** Local CPU, ~10 min
+
+Trained an MLP to predict the next latent state: `f(z_t, a_t) → z_{t+1}`.
+
+### Architecture
 ```
-Actor:  Linear(1024→256) → ReLU → Linear(256→64) → ReLU → Linear(64→4)  # mean + log_std
-Critic: Linear(1024+2→256) → ReLU → Linear(256→64) → ReLU → Linear(64→1)  # Q-value (×2 twin)
+Input: concat(z_t [1024], a_t [2]) = 1026-dim
+ → Linear(1026→512) → LayerNorm → ReLU
+ → Linear(512→512) → LayerNorm → ReLU
+ → Linear(512→512) → LayerNorm → ReLU
+ → Linear(512→1024)
+Output: z_t + delta_z (residual prediction)
 ```
 
-### Phase 2 plan
-- 32 parallel dm_control environments on A10G
-- Replay buffer: 1M transitions (embeddings pre-computed per step)
-- 500k SAC training steps
-- Baseline comparison: same SAC with random embeddings
+### Training
+- **Loss:** SmoothL1 (Huber), AdamW, cosine LR
+- **Train/Val Loss:** ~0.01 / ~0.01 (100 epochs)
+- **Parameters:** ~1.2M
+
+**✅ Key finding:** Residual prediction (`z_t + Δz`) converged faster and more stably than direct prediction. The dynamics model learned meaningful 1-step transitions.
+
+---
+
+## Phase 4 — Random Shooting MPC
+
+**Date:** 2026-02-25 | **Compute:** Local CPU, ~30 min
+
+First MPC attempt: sample 1000 random action sequences (horizon=10), unroll each through the dynamics model, pick the one closest to `z_goal`.
+
+| Metric | Result |
+|---|---|
+| Total Env Reward | **0.00** |
+| Steps | 100 |
+
+**❌ Failed.** Two causes identified:
+1. **Bad goal state** — random exploration couldn't find a high-reward state, so the "goal" was an arbitrary frame
+2. **Random shooting is inefficient** — sampling 1000 random trajectories in continuous 2D action space has poor coverage
+
+---
+
+## Phase 4b — CEM Planner (upgraded)
+
+**Date:** 2026-02-25 | **Compute:** Local CPU, ~60 min
+
+Two fixes applied:
+1. **Expert-generated goal** — P-controller on a separate raw (unwrapped) env finds the closest-to-target frame (0.07 distance)
+2. **Cross-Entropy Method (CEM)** — iteratively refines action distribution over 5 iterations (500 samples, top 50 elites, warm-starting)
+
+### Results
+
+| Metric | Phase 4 (Random) | Phase 4b (CEM) |
+|---|---|---|
+| Initial Latent Dist | N/A | 16.18 |
+| Final Latent Dist | N/A | 9.50 |
+| **Min Latent Dist** | N/A | **7.80** |
+| **Improvement** | — | **41.3%** |
+| Total Env Reward | 0.00 | **6.00** |
+
+### Key findings
+
+**✅ The dynamics model learned real physics.** Latent distance to goal decreased 41.3% — the planner genuinely steers the robot toward the target by imagining futures. This would not work if `f(z_t, a_t)` was noise.
+
+**✅ CEM >> random shooting.** Iterative refinement finds much better trajectories — total env reward improved from 0.0 to 6.0.
+
+**⚠️ Compounding error is the bottleneck.** The latent distance oscillates between 8-18 instead of converging monotonically. The dynamics model was trained on **1-step prediction** but the planner unrolls it for **10 steps** — small per-step errors compound exponentially. 
+
+**⚠️ dm_control `reacher-easy` reward is very sparse.** The reward only fires when the fingertip is within a very tight tolerance of the target. Even the P-controller expert gets 0 reward over 200 steps with a gain of 5.0. Latent distance is a more informative metric for this task.
+
+**💡 Next step:** Train the dynamics model with **multi-step rollout loss** — backpropagate through H-step unrolls during training to directly penalize compound error. Then consider Phase 5 (Dreamer-style actor-critic on imagined rollouts).
 
 ---
 
@@ -101,9 +170,10 @@ Critic: Linear(1024+2→256) → ReLU → Linear(256→64) → ReLU → Linear(6
 
 | Issue | Status | Impact |
 |---|---|---|
-| P-controller expert suboptimal | Known — by design | Caps BC at 20% |
-| Random policy eval timed out (1hr limit) | Known | Only 60 eps of data, but ~2% rate confirmed |
-| bc_policy.pt and demo dataset not in git (236MB) | Stored in Modal volume `vjepa2-robot-demos` | Re-run encode step to regenerate |
+| P-controller expert suboptimal | Known — by design | Caps BC at 20%, P-controller never achieves high reward |
+| dm_control reacher reward very sparse | Known | Even expert gets 0 reward; latent distance is better metric |
+| Dynamics model compound error | Identified in Phase 4b | 10-step rollout drift causes planner oscillation |
+| Large files not in git | `.gitignore` updated | `.npz`, `.pt` excluded; data on local disk |
 
 ---
 
@@ -114,5 +184,8 @@ Critic: Linear(1024+2→256) → ReLU → Linear(256→64) → ReLU → Linear(6
 | Phase 1a: 500 demos + encoding | Modal A10G, ~35 min | ~$0.65 |
 | Phase 1b: BC training | Local CPU, ~8 min | $0 |
 | Phase 1c: Eval (2 conditions) | Modal A10G, ~60 min | ~$1.10 |
-| **Phase 1 total** | | **~$1.75** |
-| Phase 2 SAC (planned) | Modal A10G, ~4 hrs | ~$4.50 |
+| Phase 2: Exploration data | Modal A10G, ~40 min | ~$0.75 |
+| Phase 3: Dynamics training | Local CPU, ~10 min | $0 |
+| Phase 4: Random shooting MPC | Local CPU, ~30 min | $0 |
+| Phase 4b: CEM planner | Local CPU, ~60 min | $0 |
+| **Total** | | **~$2.50** |
