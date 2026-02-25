@@ -1,2 +1,14 @@
-train_robots/data/*.npz
-train_robots/data/*.pt
+# Python
+__pycache__/
+*.pyc
+venv/
+.venv/
+
+# Large data files
+*.npz
+*.pt
+*.pth
+
+# Generated outputs
+train_robots/results/
+decoder_output/
