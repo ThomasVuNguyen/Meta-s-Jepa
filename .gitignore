@@ -10,5 +10,4 @@ venv/
 *.pth
 
 # Generated outputs
-train_robots/results/
 decoder_output/
