@@ -201,14 +201,59 @@ z3_pred = f(z2_pred, a2)      → loss vs z3
 
 ---
 
+## Phase 4d — ResBlock Dynamics Architecture
+
+**Date:** 2026-02-25 | **Compute:** Modal A10G, ~20 min
+
+Hypothesis: the 1.2M-param MLP lacks capacity to model dynamics accurately. Fix: 4× residual blocks with 1024 hidden dim → **10.5M params** (8.5× larger).
+
+### Architecture
+```
+Input: concat(z_t, a_t) [1026]
+ → Linear(1026→1024) → LayerNorm → ReLU
+ → ResBlock(1024): Linear→LN→ReLU→Linear→LN + skip
+ → ResBlock(1024): ...
+ → ResBlock(1024): ...
+ → ResBlock(1024): ...
+ → Linear(1024) → delta_z
+Output: z_t + delta_z (residual prediction)
+```
+
+### Training
+- **Epochs:** 150 (best val at ~epoch 40)
+- **Train loss:** 0.0180 → 0.0016 (memorized training set)
+- **Val loss:** 0.0132 → 0.0137 (worse than MLP's 0.01!)
+- **Severe overfitting** — 10.5M params on 80k samples
+
+### Results
+
+| Metric | 4b (MLP 1.2M) | 4c (MLP multi-step) | 4d (ResBlock 10.5M) |
+|---|---|---|---|
+| Min Latent Dist | **7.80** | 9.55 | 9.22 |
+| **Improvement** | **41.3%** | 31.4% | 11.5% |
+| Env Reward | **6.0** | 0.0 | 0.0 |
+
+### Key findings
+
+**❌ Bigger is not better.** The 10.5M ResBlock model dramatically overfits on 80k transitions and performs worst of all variants (11.5% vs 41.3%).
+
+**✅ The original small MLP is the sweet spot.** The 1.2M-param model with 1-step loss (Phase 4b) remains the best dynamics model. Its limited capacity actually acts as implicit regularization.
+
+**💡 The real bottleneck is not the model — it's the data.** With only 80k transitions (500 episodes), larger models memorize rather than generalize. Options:
+1. **Collect more data** (5000+ episodes with more diverse policies)
+2. **Add regularization** (dropout, stronger weight decay)
+3. **Skip model-based planning** and use V-JEPA latents directly for model-free RL (Phase 5)
+
+---
+
 ## Blockers / Limitations
 
 | Issue | Status | Impact |
 |---|---|---|
-| P-controller expert suboptimal | Known — by design | Caps BC at 20%, P-controller never achieves high reward |
-| dm_control reacher reward very sparse | Known | Even expert gets 0 reward; latent distance is better metric |
-| Dynamics model compound error | Tested in Phase 4c | Multi-step training didn't help; MLP architecture is bottleneck |
-| Large files not in git | `.gitignore` updated | `.npz` excluded; results/ now tracked |
+| P-controller expert suboptimal | Known — by design | Caps BC at 20% |
+| dm_control reacher reward very sparse | Known | Latent distance is better metric |
+| Dynamics model compound error | Phase 4b best at 41.3% | Multi-step (4c) and bigger model (4d) both regressed |
+| Data quantity | **New — identified in 4d** | 80k transitions insufficient for >1.2M param models |
 
 ---
 
@@ -224,4 +269,5 @@ z3_pred = f(z2_pred, a2)      → loss vs z3
 | Phase 4: Random shooting MPC | Local CPU, ~30 min | $0 |
 | Phase 4b: CEM planner | Local CPU, ~60 min | $0 |
 | Phase 4c: Multi-step dynamics | Modal A10G, ~15 min | ~$0.30 |
-| **Total** | | **~$2.80** |
+| Phase 4d: ResBlock dynamics | Modal A10G, ~20 min | ~$0.30 |
+| **Total** | | **~$3.10** |

@@ -1,0 +1,9 @@
+{
+  "initial_latent_dist": 15.419087409973145,
+  "final_latent_dist": 13.644465446472168,
+  "min_latent_dist": 9.219679832458496,
+  "improvement_pct": 11.50925418811195,
+  "total_env_reward": 0.0,
+  "max_step_reward": 0.0,
+  "phase": "4d"
+}
