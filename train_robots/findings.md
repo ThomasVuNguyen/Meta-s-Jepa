@@ -166,14 +166,49 @@ Two fixes applied:
 
 ---
 
+## Phase 4c — Multi-Step Rollout Training
+
+**Date:** 2026-02-25 | **Compute:** Modal A10G, ~15 min
+
+Hypothesis: the Phase 4b oscillation was caused by compounding 1-step prediction error over 10-step planner horizon. Fix: retrain dynamics model with **multi-step rollout loss** (H=5), backpropagating through predicted states:
+
+```
+z1_pred = f(z0, a0)           → loss vs z1
+z2_pred = f(z1_pred, a1)      → loss vs z2  (uses PREDICTED z!)
+z3_pred = f(z2_pred, a2)      → loss vs z3
+```
+
+### Results
+
+| Metric | Phase 4b (1-step) | Phase 4c (H=5) |
+|---|---|---|
+| Initial Latent Dist | 16.18 | 15.42 |
+| Final Latent Dist | 9.50 | 10.57 |
+| **Min Latent Dist** | **7.80** | 9.55 |
+| **Improvement** | **41.3%** | 31.4% |
+| Total Env Reward | 6.00 | 0.00 |
+
+### Key findings
+
+**❌ Multi-step training regressed!** The 1-step model (Phase 4b) outperformed the multi-step model (Phase 4c) on every metric. The multi-step model's min latent distance (9.55) never reached Phase 4b's (7.80).
+
+**💡 Why?** Likely causes:
+1. **Training instability** — multi-step rollout loss creates long gradient chains that are harder to optimize. The model may learn conservative predictions that don't compound errors but also lack precision.
+2. **Architecture bottleneck** — the MLP dynamics model may not have enough capacity to benefit from multi-step supervision. A Transformer or larger model may be needed.
+3. **Data diversity** — 500 episodes of epsilon-greedy P-controller may not cover enough of the state space for multi-step learning.
+
+**💡 Conclusion:** The dynamics model architecture (simple MLP) is likely the real bottleneck, not the training objective. Phase 5 (Dreamer-style actor-critic) should use a more expressive world model, or skip model-based planning entirely and use the learned latents for model-free RL.
+
+---
+
 ## Blockers / Limitations
 
 | Issue | Status | Impact |
 |---|---|---|
 | P-controller expert suboptimal | Known — by design | Caps BC at 20%, P-controller never achieves high reward |
 | dm_control reacher reward very sparse | Known | Even expert gets 0 reward; latent distance is better metric |
-| Dynamics model compound error | Identified in Phase 4b | 10-step rollout drift causes planner oscillation |
-| Large files not in git | `.gitignore` updated | `.npz`, `.pt` excluded; data on local disk |
+| Dynamics model compound error | Tested in Phase 4c | Multi-step training didn't help; MLP architecture is bottleneck |
+| Large files not in git | `.gitignore` updated | `.npz` excluded; results/ now tracked |
 
 ---
 
@@ -188,4 +223,5 @@ Two fixes applied:
 | Phase 3: Dynamics training | Local CPU, ~10 min | $0 |
 | Phase 4: Random shooting MPC | Local CPU, ~30 min | $0 |
 | Phase 4b: CEM planner | Local CPU, ~60 min | $0 |
-| **Total** | | **~$2.50** |
+| Phase 4c: Multi-step dynamics | Modal A10G, ~15 min | ~$0.30 |
+| **Total** | | **~$2.80** |
