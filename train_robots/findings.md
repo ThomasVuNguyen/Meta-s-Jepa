@@ -270,14 +270,52 @@ Output: z_t + delta_z (residual prediction)
 
 ---
 
+## Phase 4e — Retrain on 1M Transitions (5000 episodes)
+
+**Date:** 2026-02-25 | **Compute:** Modal A10G, ~3.5 hrs total (training + eval), ~$3.50
+
+Hypothesis: 10× more data (1M vs 80k transitions) will fix ResBlock overfitting and improve both models.
+
+### Training Results
+
+| Metric | MLP (80k) | MLP (1M) | ResBlock (80k) | ResBlock (1M) |
+|---|---|---|---|---|
+| Best Val Loss | 0.0100 | **0.0039** | 0.0137 (↑ overfit) | **0.0057** |
+| Overfitting? | Mild | ✅ None | ❌ Severe | ✅ Fixed |
+
+### CEM Evaluation Results
+
+| Metric | 4b (MLP, 80k) | 4e MLP (1M) | 4d (ResBlock, 80k) | 4e ResBlock (1M) |
+|---|---|---|---|---|
+| Init Latent Dist | 16.18 | 15.42 | 15.42 | 15.42 |
+| Final Latent Dist | 9.50 | 11.48 | 13.64 | **8.63** |
+| **Min Latent Dist** | **7.80** | 7.63 | 9.22 | **8.43** |
+| **Improvement** | 41.3% | 25.5% | 11.5% | **44.1%** |
+| **Env Reward** | 6.0 | **29.0** | 0.0 | 0.0 |
+
+### Key findings
+
+**✅ ResBlock overfitting completely fixed.** With 1M transitions, the ResBlock (10.5M params) went from 11.5% → **44.1% improvement** — the best latent distance improvement across all phases. Dropout + 10× data eliminated the overfitting problem.
+
+**🤔 MLP regression in latent distance but huge reward gain.** The MLP's latent distance improvement dropped (41.3% → 25.5%), but its **environment reward jumped to 29.0** — by far the highest of any model. This suggests the MLP with more data learned physically meaningful dynamics (real reward) even if the latent distance metric looks worse.
+
+**💡 Latent distance ≠ task reward.** The MLP scored 29 env reward despite "worse" latent distance, while ResBlock scored 0 reward despite better latent distance. This is a critical insight — optimizing latent distance may not optimize for the actual task.
+
+**💡 Implications for Phase 5:**
+1. The MLP (1.2M) with 1M data is the best dynamics model for real task performance (highest env reward)
+2. The ResBlock may be better at latent prediction but worse at control — possible overfitting to latent space structure rather than task-relevant dynamics
+3. Phase 5 (Dreamer actor-critic) should use the **MLP dynamics model** since it produces the best real-world outcomes
+
+---
+
 ## Blockers / Limitations
 
 | Issue | Status | Impact |
 |---|---|---|
 | P-controller expert suboptimal | Known — by design | Caps BC at 20% |
-| dm_control reacher reward very sparse | Known | Latent distance is better metric |
-| Dynamics model compound error | Phase 4b best at 41.3% | Multi-step (4c) and bigger model (4d) both regressed |
-| Data quantity | **New — identified in 4d** | 80k transitions insufficient for >1.2M param models |
+| dm_control reacher reward very sparse | Known | Latent distance ≠ task reward (confirmed in 4e) |
+| Dynamics model compound error | Phase 4e best at 44.1% | 10× data helps dramatically |
+| Latent dist vs env reward mismatch | **New — identified in 4e** | MLP scores 29 reward at 25.5% improvement; ResBlock scores 0 at 44.1% |
 
 ---
 
@@ -289,9 +327,12 @@ Output: z_t + delta_z (residual prediction)
 | Phase 1b: BC training | Local CPU, ~8 min | $0 |
 | Phase 1c: Eval (2 conditions) | Modal A10G, ~60 min | ~$1.10 |
 | Phase 2: Exploration data | Modal A10G, ~40 min | ~$0.75 |
+| Phase 2b: 5000 ep parallel collection | Modal 10×A10G, ~90 min | ~$7.00 |
 | Phase 3: Dynamics training | Local CPU, ~10 min | $0 |
 | Phase 4: Random shooting MPC | Local CPU, ~30 min | $0 |
 | Phase 4b: CEM planner | Local CPU, ~60 min | $0 |
 | Phase 4c: Multi-step dynamics | Modal A10G, ~15 min | ~$0.30 |
 | Phase 4d: ResBlock dynamics | Modal A10G, ~20 min | ~$0.30 |
-| **Total** | | **~$3.10** |
+| Phase 4e: Retrain + eval (1M data) | Modal A10G, ~3.5 hrs | ~$3.50 |
+| **Total** | | **~$13.60** |
+
