@@ -92,6 +92,30 @@ Instead of pursuing SAC directly, we pivoted to building a **world model** — t
 
 ---
 
+## Phase 2b — Large-Scale Data Collection (5000 episodes)
+
+**Date:** 2026-02-25 | **Compute:** Modal 10 × A10G parallel, ~90 min wall time, ~$7
+
+Phase 4d revealed that the 10.5M ResBlock dynamics model overfits on 80k transitions. Fix: collect 10× more data using parallel workers.
+
+### Pipeline
+- Parallelized across **10 Modal A10G containers** using `.map()`, each generating 500 episodes with unique seeds
+- Same epsilon-greedy P-controller (ε=0.3)
+- Shards merged on cloud (32GB RAM container) to avoid local OOM
+- Uploaded directly from Modal to HuggingFace (no local download of 8GB file)
+
+| Metric | Phase 2 | Phase 2b |
+|---|---|---|
+| Episodes | 500 | **5,000** |
+| Transitions | 100,000 | **1,000,000** |
+| Dataset size | 496 MB | **8.2 GB** |
+| Avg success rate | ~15% | 12.0% |
+| Wall time | 40 min (1 GPU) | 90 min (10 GPUs) |
+
+**✅ Dataset stored at:** [HuggingFace: ThomasTheMaker/vjepa2-reacher-world-model](https://huggingface.co/datasets/ThomasTheMaker/vjepa2-reacher-world-model)
+
+---
+
 ## Phase 3 — Action-Conditioned Dynamics Predictor
 
 **Date:** 2026-02-25 | **Compute:** Local CPU, ~10 min
