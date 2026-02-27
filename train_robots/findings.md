@@ -308,14 +308,65 @@ Hypothesis: 10× more data (1M vs 80k transitions) will fix ResBlock overfitting
 
 ---
 
+## Phase 5 — Dreamer-Style Latent Actor-Critic
+
+**Date:** 2026-02-26 | **Compute:** Modal A10G, ~35 min, ~$0.70
+
+Train a learned policy π(z_t) → a_t entirely inside the dynamics model (no real env interaction during training).
+
+### Architecture
+
+- **Actor:** Stochastic Gaussian MLP, z[1024] → hidden[256×2] → mean,log_std[2] → tanh → a_t (~265K params)
+- **Critic:** Twin-head value function, z[1024] → hidden[256×2] → V(z) (~530K params)
+- **Dynamics:** Frozen MLP 1.2M params from Phase 4e
+
+### Training
+
+- 500 epochs, 64 parallel dreams, 15-step imagination horizon
+- TD-λ critic targets (γ=0.99, λ=0.95), entropy regularization (0.01)
+- Reward: -||z_t - z_goal|| / ||z_goal|| (normalized negative distance)
+- Goal: mean of top-500 highest-reward states from dataset
+
+### Results
+
+| Metric | 4e MLP CEM | 4e ResBlock CEM | **Phase 5 Dreamer** |
+|---|---|---|---|
+| Init Latent Dist | 15.42 | 15.42 | 15.42 |
+| Final Latent Dist | 11.48 | 8.63 | 9.64 |
+| **Min Latent Dist** | 7.63 | 8.43 | **7.64** |
+| **Improvement** | 25.5% | 44.1% | 37.5% |
+| **Env Reward** | **29.0** | 0.0 | 0.0 |
+
+### Key findings
+
+**✅ Actor learned meaningful latent policies.** The Dreamer actor achieved 37.5% latent improvement and the second-best min latent distance (7.64) — competitive with CEM despite being a single forward pass (no search).
+
+**❌ Zero environment reward — again.** Same pattern as the ResBlock: good latent distance reduction but no task reward. The actor learned to output very small actions (e.g., [0.07, -0.03]) which move in latent space but produce negligible physical movement.
+
+**💡 Root cause analysis — the latent distance metric is fundamentally flawed for this task:**
+1. V-JEPA 2 embeddings encode full visual scenes, not just task-relevant features
+2. Small pixel-level changes can have large latent distances, and vice versa
+3. The reacher reward requires the fingertip to physically touch the target — this is a very sparse signal that doesn't correlate with continuous latent distance
+4. Models that optimize latent distance learn to make the *image look right* rather than making the *arm move right*
+
+**💡 The MLP CEM's success (29.0 reward) was likely due to CEM's stochastic search accidentally finding high-reward actions, not because CEM optimizes a better metric.** The CEM planner samples 500 random action sequences — some happen to produce large physical movements that earn reward, even though the planner's objective was latent distance.
+
+**💡 Next steps to fix this:**
+1. **Add reward model:** Train a separate MLP to predict environment reward from z_t, use this as the training signal instead of latent distance
+2. **Hybrid reward:** Combine latent distance with predicted reward: r = -dist + α·R_pred(z_t)
+3. **Action magnitude regularization:** Penalize small actions to encourage exploration
+4. **Online fine-tuning:** Periodically collect real transitions with the current actor and retrain
+
+---
+
 ## Blockers / Limitations
 
 | Issue | Status | Impact |
 |---|---|---|
 | P-controller expert suboptimal | Known — by design | Caps BC at 20% |
-| dm_control reacher reward very sparse | Known | Latent distance ≠ task reward (confirmed in 4e) |
-| Dynamics model compound error | Phase 4e best at 44.1% | 10× data helps dramatically |
-| Latent dist vs env reward mismatch | **New — identified in 4e** | MLP scores 29 reward at 25.5% improvement; ResBlock scores 0 at 44.1% |
+| dm_control reacher reward very sparse | Known | Latent distance ≠ task reward (confirmed in 4e, 5) |
+| V-JEPA embeddings not task-aligned | **New — identified in Phase 5** | Models optimize visual similarity, not physical task |
+| Latent dist vs env reward mismatch | Confirmed across 3 methods | CEM, ResBlock, Dreamer all fail to translate latent improvement to reward |
 
 ---
 
@@ -334,5 +385,7 @@ Hypothesis: 10× more data (1M vs 80k transitions) will fix ResBlock overfitting
 | Phase 4c: Multi-step dynamics | Modal A10G, ~15 min | ~$0.30 |
 | Phase 4d: ResBlock dynamics | Modal A10G, ~20 min | ~$0.30 |
 | Phase 4e: Retrain + eval (1M data) | Modal A10G, ~3.5 hrs | ~$3.50 |
-| **Total** | | **~$13.60** |
+| Phase 5: Dreamer actor-critic | Modal A10G, ~35 min | ~$0.70 |
+| **Total** | | **~$14.30** |
+
 
