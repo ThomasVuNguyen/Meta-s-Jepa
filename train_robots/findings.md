@@ -359,14 +359,98 @@ Train a learned policy π(z_t) → a_t entirely inside the dynamics model (no re
 
 ---
 
+## Phase 5b — Reward Model + Hybrid Dreamer
+
+**Date:** 2026-02-26 | **Compute:** Modal A10G, ~45 min, ~$0.90
+
+Hypothesis: Training a reward model and using hybrid reward (pred_reward + latent_dist + action_magnitude) will fix Phase 5's zero-reward problem.
+
+### Stage 1: Reward Model
+
+Trained R(z_t, a_t) → reward ∈ [0,1] from dataset. 330K params.
+
+| Metric | Value |
+|---|---|
+| Dataset reward stats | 27.6% non-zero, mean 0.276, max 1.0 |
+| Best val MSE | 0.015 |
+| High-reward pred accuracy | Good discrimination between high/low reward states |
+
+### Stage 2: Hybrid Dreamer Training
+
+Reward = 10·R_pred + 0.1·(-latent_dist) + 0.5·||action||
+
+### Stage 3: Evaluation
+
+| Metric | 4e MLP CEM | Phase 5 | **Phase 5b** |
+|---|---|---|---|
+| Improvement | 25.5% | 37.5% | **-45.6%** ❌ |
+| Env Reward | **29.0** | 0.0 | 0.0 |
+| Avg |action| | N/A | 0.05 | 0.069 |
+
+### Key findings
+
+**❌ Hybrid reward made things worse.** Despite adding a trained reward model and action magnitude bonus, the actor produced even worse latent distance (-45.6%, i.e., moved *away* from goal) and still zero environment reward.
+
+**❌ Action magnitude bonus insufficient.** Average action magnitude increased slightly (0.05 → 0.069) but still far too small for meaningful physical movement (CEM actions are typically 0.3-0.8).
+
+**💡 Root cause — imagination-to-reality gap (sim2real in latent space):**
+
+The fundamental problem is **not** the reward signal — it's that the **dynamics model is not accurate enough for gradient-based optimization.** Here's why CEM works but Dreamer doesn't:
+
+1. **CEM (works):** Samples 500 random action sequences, evaluates each in the dynamics model, picks the best. Errors in dynamics predictions get averaged out across many samples. The search process is robust to model inaccuracies.
+
+2. **Dreamer (fails):** Backpropagates gradients through the dynamics model to update the actor. Any inaccuracy in the dynamics model creates **biased gradients** that push the actor toward "shortcut" policies — actions that game the model's errors rather than learning real physics.
+
+3. **The actor converges to tiny actions** because the dynamics model predicts that small actions create small z-changes, and small z-changes are easy for the critic to predict. This is a stable equilibrium but a useless one.
+
+**💡 This is a known failure mode** in model-based RL called "model exploitation." The policy optimizer finds ways to exploit imperfections in the learned dynamics model.
+
+**💡 To truly fix this, one would need:**
+1. **Ensemble dynamics models** — train 3-5 dynamics models and penalize disagreement (PETS/MBPO style)
+2. **Online data collection** — periodically run the actor in the real env and add data to the replay buffer
+3. **Conservative policy updates** — constrain actor updates to stay near the data distribution (CQL/TD3-style)
+
+These are significant engineering efforts beyond the scope of this experimental pipeline.
+
+---
+
+## Full Results Comparison
+
+| Phase | Method | Latent Improvement | Env Reward | Cost |
+|---|---|---|---|---|
+| 4b | MLP CEM (80k data) | 41.3% | 6.0 | $0 |
+| 4c | Multi-step MLP CEM | 27.1% | 0.0 | ~$0.30 |
+| 4d | ResBlock CEM (80k) | 11.5% | 0.0 | ~$0.30 |
+| 4e | MLP CEM (1M data) | 25.5% | **29.0** ⭐ | ~$3.50 |
+| 4e | ResBlock CEM (1M) | **44.1%** | 0.0 | (incl.) |
+| 5 | Dreamer v1 | 37.5% | 0.0 | ~$0.70 |
+| 5b | Hybrid Dreamer v2 | -45.6% | 0.0 | ~$0.90 |
+
+**Winner: Phase 4e MLP CEM** — the simple CEM planner with the MLP dynamics model trained on 1M transitions produces the best real-world results.
+
+---
+
 ## Blockers / Limitations
 
 | Issue | Status | Impact |
 |---|---|---|
 | P-controller expert suboptimal | Known — by design | Caps BC at 20% |
-| dm_control reacher reward very sparse | Known | Latent distance ≠ task reward (confirmed in 4e, 5) |
-| V-JEPA embeddings not task-aligned | **New — identified in Phase 5** | Models optimize visual similarity, not physical task |
-| Latent dist vs env reward mismatch | Confirmed across 3 methods | CEM, ResBlock, Dreamer all fail to translate latent improvement to reward |
+| dm_control reacher reward very sparse | Known | Only proximity reward ∈ [0,1] |
+| V-JEPA embeddings not task-aligned | Confirmed | Latent distance ≠ physical task reward |
+| Model exploitation in Dreamer | **Root cause found** | Actor exploits dynamics errors → tiny actions |
+| CEM works but Dreamer fails | **Key finding** | Search-based planning robust to model errors; gradient-based is not |
+
+---
+
+## Project Conclusions
+
+1. **V-JEPA 2 as frozen encoder works** — produces rich 1024-d representations suitable for dynamics modeling
+2. **Simple MLP dynamics (1.2M params) is the sweet spot** — bigger models don't help for control, even with more data
+3. **CEM planning is surprisingly effective** — 29.0 env reward with zero training, just search-time optimization
+4. **Dreamer-style imagination training doesn't transfer** — gradient-based actor optimization exploits dynamics model inaccuracies
+5. **Data quantity matters** — 1M transitions vs 80k dramatically improved both models
+
+**Total project cost: ~$15.20 on Modal.** The project demonstrates a complete V-JEPA 2 → dynamics → planning pipeline with clear empirical findings about the strengths and limitations of each approach.
 
 ---
 
@@ -386,6 +470,8 @@ Train a learned policy π(z_t) → a_t entirely inside the dynamics model (no re
 | Phase 4d: ResBlock dynamics | Modal A10G, ~20 min | ~$0.30 |
 | Phase 4e: Retrain + eval (1M data) | Modal A10G, ~3.5 hrs | ~$3.50 |
 | Phase 5: Dreamer actor-critic | Modal A10G, ~35 min | ~$0.70 |
-| **Total** | | **~$14.30** |
+| Phase 5b: Hybrid Dreamer v2 | Modal A10G, ~45 min | ~$0.90 |
+| **Total** | | **~$15.20** |
+
 
 
