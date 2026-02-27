@@ -442,6 +442,89 @@ These are significant engineering efforts beyond the scope of this experimental 
 
 ---
 
+## Zooming Out: How Close Are We to a Robot Intelligence Layer?
+
+This project set out to answer a simple question: **can a video foundation model (V-JEPA 2) serve as the "brain" for a robot?** After 5 phases, $15.20 in compute, and 7 different approaches, we have a clear answer — and it reveals exactly where the gap is.
+
+### What We Proved
+
+**The perception layer is solved.** V-JEPA 2, frozen and unmodified, produces rich 1024-dimensional representations that are good enough to:
+- Learn dynamics models that predict future states (44.1% latent improvement)
+- Enable CEM planning that achieves real environment reward (29.0)
+- Distinguish between states, actions, and outcomes at sufficient resolution
+
+A foundation model trained on internet video genuinely understands enough about physics to be useful for control. This is remarkable — two years ago this wasn't possible.
+
+### What We Didn't Solve: The Three Missing Layers
+
+Perception alone isn't intelligence. Our project exposed three fundamental gaps between "seeing well" and "acting well":
+
+**1. The Grounding Gap** 🎯
+
+V-JEPA learns to represent *everything* in the scene — lighting, textures, background, arm angles, target positions — all compressed into one 1024-d vector. But for the reacher task, only one thing matters: *is the fingertip touching the target?*
+
+This is the grounding problem. The model can see the world but doesn't know what *matters*. A human toddler learning to reach for a toy doesn't process the entire visual scene — they attend to their hand and the toy. Our models attend to everything equally.
+
+**Evidence from our experiments:**
+- ResBlock achieved 44.1% latent improvement (moved embeddings closer to goal) but 0.0 reward — it made the *image look right* without the *arm being right*
+- MLP CEM got 29.0 reward at only 25.5% improvement — it accidentally moved the arm by brute-force search
+- The Dreamer actor learned tiny actions (|a|=0.05) that create small latent changes — optimizing the embedding space rather than the physics
+
+We need representations that are **task-conditioned** — that know what to pay attention to given a specific goal.
+
+**2. The Planning Gap** 🧠
+
+CEM planning works because it's *robust to model errors*. It samples 500 random action sequences, evaluates each through the (imperfect) dynamics model, and picks the best. Individual predictions can be wrong, but the search process finds good actions on average.
+
+Dreamer-style policy learning fails because it's *sensitive to model errors*. Backpropagating gradients through an imperfect dynamics model creates biased updates. The actor learns to exploit the model's blind spots rather than learning real physics. This is called **model exploitation** — a known failure mode in model-based RL.
+
+The gap: we can plan *reactively* (CEM: re-plan at every step) but not *proactively* (Dreamer: learn a policy once, deploy forever). Reactive planning requires the full dynamics model at runtime. Proactive policies are fast and cheap to deploy.
+
+To bridge this gap, you need either:
+- **Model ensembles** that penalize disagreement (so the actor can't exploit any single model's errors)
+- **Online learning** that alternates real experience with imagination (so the model corrects its own mistakes)
+- **Both** (this is what state-of-the-art systems like DreamerV3 and TD-MPC2 do)
+
+**3. The Embodiment Gap** 🤖
+
+Our entire pipeline operates in a loop: see → think → act → see → think → act. But there's no persistent memory, no skill library, no ability to transfer learning from one task to another. Every episode starts from scratch.
+
+A real robot intelligence layer needs:
+- **Episodic memory** — "last time I saw this object, reaching from the left worked"
+- **Skill composition** — "I know how to reach and I know how to grasp, so I can reach-then-grasp"
+- **Continuous adaptation** — the world changes (lighting, object positions, wear on joints), the model must update
+
+This is the furthest gap from being solved, and it's mostly an architecture/systems problem rather than an ML problem.
+
+### The Scoreboard: V-JEPA 2 as Robot Brain
+
+| Capability | Status | What's Needed |
+|---|---|---|
+| Visual perception | ✅ **Solved** | V-JEPA 2 works frozen |
+| World dynamics | ✅ **Good enough** | 1.2M MLP learns 1-step predictions |
+| Reactive planning (CEM) | ✅ **Works** | 29.0 reward, real-time on GPU |
+| Learned policy (Dreamer) | ❌ **Fails** | Model exploitation; needs ensembles + online learning |
+| Task-conditioned attention | ❌ **Missing** | Need goal-conditioned representations |
+| Multi-task transfer | ❌ **Not attempted** | Need skill library architecture |
+| Continuous adaptation | ❌ **Not attempted** | Need online fine-tuning pipeline |
+
+### How Close Are We?
+
+**Optimistic read:** The hardest part — getting a vision model that understands physics — is done. V-JEPA 2 gives us the perception layer for free. Adding CEM planning on top gets us to "a robot that can complete simple tasks." We're maybe **40% of the way** to a general robot intelligence layer, and the first 40% (perception) was the part that nobody knew how to do until recently.
+
+**Realistic read:** Perception is necessary but not sufficient. The remaining 60% — grounding, planning, embodiment — are each hard research problems with no clear foundation model solution. CEM planning gives us a demo but not a product: it's too slow (requires running the dynamics model hundreds of times per action), too brittle (fails if the dynamics model is wrong), and too narrow (works for one task at a time).
+
+**What would "good enough for a product" look like?**
+
+1. A frozen V-JEPA encoder (✅ we have this)
+2. A task-conditioned dynamics model that knows what matters (❌ needs research)
+3. A fast actor that works in one forward pass, trained with online model-based RL (❌ needs infrastructure)
+4. A skill library that composes learned behaviors (❌ needs architecture)
+
+The path from here to there is probably 6-12 months of focused engineering and $500-2000 in compute. Not "10 years and billions of dollars" — the foundation model revolution genuinely compressed the timeline. But also not "one more script on Modal."
+
+---
+
 ## Project Conclusions
 
 1. **V-JEPA 2 as frozen encoder works** — produces rich 1024-d representations suitable for dynamics modeling
@@ -449,8 +532,11 @@ These are significant engineering efforts beyond the scope of this experimental 
 3. **CEM planning is surprisingly effective** — 29.0 env reward with zero training, just search-time optimization
 4. **Dreamer-style imagination training doesn't transfer** — gradient-based actor optimization exploits dynamics model inaccuracies
 5. **Data quantity matters** — 1M transitions vs 80k dramatically improved both models
+6. **Perception is solved but grounding isn't** — V-JEPA sees the world but doesn't know what matters for the task
+7. **Search beats learning (for now)** — CEM's robustness to model error is more valuable than Dreamer's efficiency
 
-**Total project cost: ~$15.20 on Modal.** The project demonstrates a complete V-JEPA 2 → dynamics → planning pipeline with clear empirical findings about the strengths and limitations of each approach.
+**Total project cost: ~$15.20 on Modal.** The project demonstrates a complete V-JEPA 2 → dynamics → planning pipeline with clear empirical findings about exactly where the frontier is for robot intelligence.
+
 
 ---
 
