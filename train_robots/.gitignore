@@ -1,0 +1,8 @@
+# Large data files (use HF for storage)
+train_robots/data/*.npz
+train_robots/models/models/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
