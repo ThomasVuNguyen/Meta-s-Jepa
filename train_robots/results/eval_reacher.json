@@ -1,0 +1,70 @@
+{
+  "reacher_easy": [
+    {
+      "condition": "faithful",
+      "seed": 0,
+      "demo_seed": 0,
+      "return": 0.0,
+      "demo_return": 143.0,
+      "progress": 200,
+      "max_progress": 201,
+      "avg_disagreement": 0.014276818013750017,
+      "avg_goal_dist": 12.179053490161897
+    },
+    {
+      "condition": "shifted",
+      "seed": 1000,
+      "demo_seed": 0,
+      "return": 0.0,
+      "demo_return": 143.0,
+      "progress": 200,
+      "max_progress": 201,
+      "avg_disagreement": 0.012621219526045025,
+      "avg_goal_dist": 15.898957467079162
+    },
+    {
+      "condition": "faithful",
+      "seed": 1,
+      "demo_seed": 1,
+      "return": 70.0,
+      "demo_return": 0.0,
+      "progress": 200,
+      "max_progress": 201,
+      "avg_disagreement": 0.013528847307898105,
+      "avg_goal_dist": 10.876520111560822
+    },
+    {
+      "condition": "shifted",
+      "seed": 1001,
+      "demo_seed": 1,
+      "return": 0.0,
+      "demo_return": 0.0,
+      "progress": 200,
+      "max_progress": 201,
+      "avg_disagreement": 0.014720480758696794,
+      "avg_goal_dist": 12.11942477464676
+    },
+    {
+      "condition": "faithful",
+      "seed": 2,
+      "demo_seed": 2,
+      "return": 0.0,
+      "demo_return": 1.0,
+      "progress": 200,
+      "max_progress": 201,
+      "avg_disagreement": 0.010670074836816638,
+      "avg_goal_dist": 7.8239856207370755
+    },
+    {
+      "condition": "shifted",
+      "seed": 1002,
+      "demo_seed": 2,
+      "return": 0.0,
+      "demo_return": 1.0,
+      "progress": 200,
+      "max_progress": 201,
+      "avg_disagreement": 0.013529798057861626,
+      "avg_goal_dist": 15.946927127838135
+    }
+  ]
+}
