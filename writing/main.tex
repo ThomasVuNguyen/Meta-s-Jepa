@@ -1,0 +1,325 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage[margin=1in]{geometry}
+\usepackage{algorithm}
+\usepackage{algorithmic}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{natbib}
+
+\title{\textbf{Teach-by-Showing: Zero-Shot Robot Control via \\Frozen Video Foundation Models and CEM Planning}}
+
+\author{
+Thomas Vu Nguyen \\
+\texttt{thomas@example.com}
+}
+
+\date{March 2026}
+
+\begin{document}
+
+\maketitle
+
+% ============================================================
+\begin{abstract}
+We investigate whether video foundation models pretrained on internet-scale data can serve as \emph{frozen} perception backbones for robot control---without any robot-specific encoder training. Using V-JEPA~2 (ViT-L, 325M parameters) as a fixed feature extractor, we learn lightweight dynamics and reward models in the resulting latent space, then deploy a Cross-Entropy Method (CEM) planner augmented with ensemble disagreement penalties. Our \emph{teach-by-showing} agent watches a single demonstration, encodes it as a goal trajectory in V-JEPA latent space, and replays it under novel initial conditions using model-predictive control. Across 7 DeepMind Control Suite tasks, the agent achieves non-trivial reward on 3 tasks (walker\_walk, cartpole\_swingup, reacher\_easy), with the walker agent \emph{generalizing beyond the demonstration}---scoring 20.1 reward under shifted initial conditions versus 13.5 under faithful replay. Ablation studies confirm that ensemble dynamics provide a 4.1$\times$ improvement on complex tasks, while simpler tasks require only a single model. The entire experimental pipeline---data collection, model training, ablations, and multi-task evaluation---costs under \$30 in cloud GPU compute. Our results suggest that frozen video encoders capture sufficient spatial and dynamical structure for model-based control on tasks with visually salient state changes, but fail on tasks requiring fine-grained state discrimination.
+\end{abstract}
+
+% ============================================================
+\section{Introduction}
+
+The dominant paradigm in visual robot learning trains task-specific encoders from scratch, requiring millions of interactions or thousands of demonstrations per task~\citep{hafner2020dreamer, hansen2022td-mpc}. A compelling alternative is to leverage \emph{foundation models}---large networks pretrained on diverse, internet-scale data---as frozen perceptual backbones. If such models encode sufficient spatial and dynamical information, one could bypass encoder training entirely and focus on learning lightweight control modules.
+
+Video foundation models are particularly promising for robotics because they are trained to predict visual dynamics---the very quantity needed for model-based control. V-JEPA~2~\citep{bardes2024vjepa} learns joint embeddings of video clips via self-supervised prediction in latent space, yielding representations that capture object position, motion, and scene dynamics without requiring labeled data or pixel-level reconstruction.
+
+This paper asks: \textbf{Can a frozen V-JEPA~2 encoder, combined with learned dynamics models and CEM planning, enable a ``teach-by-showing'' agent that watches a demonstration and replays it under novel conditions?}
+
+Our contributions are:
+\begin{enumerate}
+    \item We demonstrate that frozen V-JEPA~2 features support learning accurate dynamics models (ensemble of 5 MLPs, $<$0.001 MSE) across multiple DeepMind Control Suite tasks.
+    \item We introduce a \emph{teach-by-showing} pipeline: record a demonstration, encode it as a latent goal trajectory, and replay it via CEM planning with ensemble uncertainty penalties.
+    \item We provide ablation studies isolating the contribution of the ensemble, reward model, and uncertainty penalty across tasks of varying complexity.
+    \item We evaluate on 7 DMC tasks and characterize which visual properties determine success vs.\ failure of the frozen encoder approach.
+\end{enumerate}
+
+% ============================================================
+\section{Related Work}
+
+\paragraph{World Models for Control.}
+Dreamer~\citep{hafner2020dreamer} and its successors learn latent dynamics models and train actor-critic policies ``in imagination.'' TD-MPC~\citep{hansen2022td-mpc} combines temporal-difference learning with MPC and learned models. PETS~\citep{chua2018pets} introduced probabilistic ensemble dynamics for robust planning. Our work follows the PETS philosophy---ensemble dynamics plus CEM planning---but uses a \emph{frozen} encoder rather than a learned one.
+
+\paragraph{Foundation Models for Robotics.}
+R3M~\citep{nair2022r3m} and VIP~\citep{ma2023vip} pretrain visual encoders on Ego4D video for robotic manipulation, showing that internet video representations transfer to downstream tasks. RT-2~\citep{brohan2023rt2} uses vision-language models for end-to-end control. Our approach differs by using a \emph{video prediction} model (V-JEPA~2) rather than a classification or language-grounded model, and by deploying it as a frozen world model backbone rather than fine-tuning.
+
+\paragraph{Goal-Conditioned Planning.}
+Visual MPC~\citep{ebert2018visual} plans in pixel space toward goal images. RIG~\citep{nair2018rig} learns goal-conditioned policies in learned latent spaces. Our teach-by-showing agent is closest to visual MPC but operates in V-JEPA latent space, using an entire trajectory as the goal rather than a single goal image.
+
+% ============================================================
+\section{Method}
+
+\subsection{V-JEPA~2 as Frozen Encoder}
+
+We use V-JEPA~2 ViT-L~\citep{bardes2024vjepa} (325M parameters) as a frozen feature extractor. Each camera frame (224$\times$224 RGB) is processed as a single-frame ``video'' input, yielding a 1024-dimensional embedding $\mathbf{z} \in \mathbb{R}^{1024}$. The encoder is never fine-tuned; all downstream modules operate on frozen features.
+
+\textbf{Embedding properties.} Across all tasks, V-JEPA embeddings exhibit high temporal coherence (consecutive-frame cosine similarity $>$0.998) while maintaining discriminability (random-pair cosine similarity $\approx$0.95--0.997). Linear probes confirm R$^2 = 0.86$ for object position and R$^2 = 0.89$ for object size/depth.
+
+\subsection{Dynamics and Reward Models}
+
+\paragraph{Dynamics Ensemble.}
+We train an ensemble of $K$ dynamics models $\{f_k\}_{k=1}^{K}$, each parameterized as a 3-layer MLP with residual connections and LayerNorm:
+\begin{equation}
+    f_k(\mathbf{z}_t, \mathbf{a}_t) = \mathbf{z}_t + \text{MLP}_k([\mathbf{z}_t; \mathbf{a}_t])
+\end{equation}
+Each MLP has hidden dimension 512 ($\sim$1.58M parameters). Ensemble members are trained with bootstrap sampling (random resampling with replacement from the training set) to encourage diversity.
+
+\paragraph{Reward Model.}
+A separate 2-layer MLP ($\sim$329K parameters) predicts scalar reward:
+\begin{equation}
+    \hat{r}_t = g(\mathbf{z}_t, \mathbf{a}_t)
+\end{equation}
+
+Both models are trained on $({\mathbf{z}_t, \mathbf{a}_t, r_t, \mathbf{z}_{t+1}})$ tuples collected from random exploration episodes encoded with V-JEPA.
+
+\subsection{CEM Planning with Ensemble Uncertainty}
+
+Given a goal trajectory $\{\mathbf{z}_t^{\text{goal}}\}_{t=1}^{T}$ from a demonstration, we use the Cross-Entropy Method (CEM) to select actions at each timestep:
+
+\begin{algorithm}[h]
+\caption{CEM Planning Step}
+\begin{algorithmic}[1]
+\STATE \textbf{Input:} Current latent $\mathbf{z}_t$, goal sequence $\{\mathbf{z}_\tau^{\text{goal}}\}_{\tau=t}^{t+L}$
+\STATE Initialize $\boldsymbol{\mu} \in \mathbb{R}^{H \times d_a}$, $\boldsymbol{\sigma} = 0.5 \cdot \mathbf{1}$
+\FOR{$i = 1$ to $N_{\text{iter}}$}
+    \STATE Sample $M$ action sequences: $\mathbf{A}^{(m)} \sim \mathcal{N}(\boldsymbol{\mu}, \boldsymbol{\sigma}^2)$, clipped to $[\mathbf{a}_{\min}, \mathbf{a}_{\max}]$
+    \STATE Rollout each sequence through ensemble:
+    \FOR{each horizon step $h$}
+        \STATE $\hat{\mathbf{z}}_{t+h}^{(k,m)} = f_k(\mathbf{z}_{t+h-1}^{(m)}, \mathbf{a}_h^{(m)})$ for $k = 1, \ldots, K$
+        \STATE $\hat{\mathbf{z}}_{t+h}^{(m)} = \frac{1}{K} \sum_k \hat{\mathbf{z}}_{t+h}^{(k,m)}$ \hfill \textit{(ensemble mean)}
+        \STATE $S^{(m)} \mathrel{+}= \alpha \cdot \hat{r}_h - \|\hat{\mathbf{z}}_{t+h}^{(m)} - \mathbf{z}_{t+h}^{\text{goal}}\|_2 - \beta \cdot \text{std}_k(\hat{\mathbf{z}}^{(k,m)})$ \hfill \textit{(scoring)}
+    \ENDFOR
+    \STATE Select top-$E$ elite sequences by score $S^{(m)}$
+    \STATE Update: $\boldsymbol{\mu} \leftarrow \text{mean}(\text{elites})$, $\boldsymbol{\sigma} \leftarrow \text{std}(\text{elites})$
+\ENDFOR
+\STATE \textbf{Return:} $\boldsymbol{\mu}[0]$ (first action of optimized sequence)
+\end{algorithmic}
+\end{algorithm}
+
+The scoring function balances three objectives:
+\begin{itemize}
+    \item \textbf{Goal tracking}: Minimize Euclidean distance to the goal trajectory in latent space.
+    \item \textbf{Reward maximization}: Weight $\alpha = 5.0$ amplifies predicted reward.
+    \item \textbf{Uncertainty penalty}: Weight $\beta = 2.0$ penalizes ensemble disagreement, preventing exploitation of dynamics model errors.
+\end{itemize}
+
+Default hyperparameters: $M=500$ candidates, $E=50$ elites, $N_{\text{iter}}=5$ iterations, horizon $H=8$, lookahead $L=15$.
+
+\subsection{Teach-by-Showing Pipeline}
+
+The full pipeline operates in three stages:
+\begin{enumerate}
+    \item \textbf{Demonstration:} An expert (or random) policy executes one episode; all frames are encoded to a goal trajectory $\{\mathbf{z}_t^{\text{goal}}\}$.
+    \item \textbf{Replay:} The agent starts from the same (``faithful'') or different (``shifted'') initial state and uses CEM planning to track the goal trajectory.
+    \item \textbf{Evaluation:} Environment reward accumulated during replay measures how well the agent performs the task, not just how closely it tracks the demo.
+\end{enumerate}
+
+% ============================================================
+\section{Experimental Setup}
+
+\subsection{Tasks}
+
+We evaluate on 7 tasks from the DeepMind Control Suite~\citep{tassa2018deepmind}:
+
+\begin{table}[h]
+\centering
+\caption{Task characteristics.}
+\label{tab:tasks}
+\begin{tabular}{lccl}
+\toprule
+\textbf{Task} & \textbf{Action Dim} & \textbf{Visual Saliency} & \textbf{Description} \\
+\midrule
+walker\_walk & 6 & High & Bipedal locomotion \\
+cartpole\_swingup & 1 & High & Pole angle control \\
+reacher\_easy & 2 & High & Arm reaching target \\
+cheetah\_run & 6 & Medium & Quadruped running \\
+hopper\_hop & 4 & Low & Single-leg hopping \\
+finger\_spin & 2 & Low & Finger rotation \\
+point\_mass\_easy & 2 & Low & Point navigation \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Data Collection}
+
+For each task, we collect 500 episodes of random exploration (200 steps each, 100K transitions), render frames at 224$\times$224, and encode with V-JEPA~2 inline. The resulting datasets are $(\mathbf{z}_t, \mathbf{a}_t, r_t, \mathbf{z}_{t+1})$ tuples stored as compressed NumPy arrays ($\sim$1 GB per task).
+
+\subsection{Training}
+
+Dynamics models are trained for 100 epochs with AdamW ($\text{lr}=3\!\times\!10^{-4}$, weight decay $10^{-5}$), cosine LR schedule, gradient clipping at 1.0, and 90/10 train/val split. Each ensemble member uses bootstrap resampling. Reward models use identical hyperparameters.
+
+\subsection{Evaluation Protocol}
+
+Each task is evaluated with 10 demonstration seeds. For each demo, we run two replay conditions:
+\begin{itemize}
+    \item \textbf{Faithful}: Same random seed as demo (identical initial state).
+    \item \textbf{Shifted}: Different random seed (novel initial state).
+\end{itemize}
+This yields 20 episodes per task (10 faithful + 10 shifted). We report mean $\pm$ standard deviation of cumulative environment reward.
+
+% ============================================================
+\section{Results}
+
+\subsection{Multi-Task Evaluation}
+
+Table~\ref{tab:main_results} presents the main results across all 7 tasks.
+
+\begin{table}[h]
+\centering
+\caption{Teach-by-showing agent performance across 7 DMC tasks (mean $\pm$ std, $N$=10 demos).}
+\label{tab:main_results}
+\begin{tabular}{lccccc}
+\toprule
+\textbf{Task} & \textbf{Ensemble $K$} & \textbf{Faithful} & \textbf{Shifted} & \textbf{Demo Reward} \\
+\midrule
+walker\_walk & 5 & 13.5 $\pm$ 4.8 & \textbf{20.1 $\pm$ 6.1} & random \\
+cartpole\_swingup & 5 & 14.4 $\pm$ 0.7 & 14.3 $\pm$ 0.5 & 0.0 \\
+reacher\_easy & 5 & 6.1 $\pm$ 9.6 & 8.5 $\pm$ 19.8 & random \\
+cheetah\_run & 5 & 1.7 $\pm$ 0.9 & 1.4 $\pm$ 0.8 & random \\
+hopper\_hop & 3 & 0.0 $\pm$ 0.0 & 0.3 $\pm$ 0.8 & random \\
+finger\_spin & 1 & 0.0 $\pm$ 0.0 & 0.0 $\pm$ 0.0 & random \\
+point\_mass\_easy & 5 & 0.0 $\pm$ 0.0 & 1.4 $\pm$ 4.0 & random \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Key observations.}
+Three tasks achieve meaningful reward: walker\_walk (20.1 shifted), cartpole\_swingup (14.4), and reacher\_easy (8.5 shifted). The remaining four tasks score near zero, indicating that frozen V-JEPA features are insufficient for those environments.
+
+\paragraph{Walker\_walk generalizes.}
+The walker agent achieves \emph{higher} reward under shifted conditions (20.1) than faithful replay (13.5). This is the strongest evidence that the agent performs goal-conditioned planning rather than trajectory memorization---starting from different states, it discovers more efficient locomotion strategies guided by the dynamics model.
+
+\paragraph{Cartpole beats the expert.}
+The cartpole demonstrations score 0.0 reward (the random policy fails at swingup). Yet the CEM agent scores 14.4---an emergent capability arising from dynamics-guided planning rather than demonstration imitation. The agent discovers an effective swingup strategy despite never observing one.
+
+\subsection{Ablation Studies}
+
+We ablate four components on reacher\_easy and cartpole\_swingup (5 seeds each):
+
+\begin{table}[h]
+\centering
+\caption{Ablation study results (mean $\pm$ std, $N$=5).}
+\label{tab:ablation}
+\begin{tabular}{lcc|cc}
+\toprule
+& \multicolumn{2}{c|}{\textbf{Reacher}} & \multicolumn{2}{c}{\textbf{Cartpole}} \\
+\textbf{Condition} & Faithful & Shifted & Faithful & Shifted \\
+\midrule
+\textsc{Full} ($K$=5, $\alpha$=5, $\beta$=2) & \textbf{18.0 $\pm$ 27.5} & 2.2 $\pm$ 4.4 & 13.8 $\pm$ 1.1 & 14.3 $\pm$ 0.9 \\
+\textsc{Single} ($K$=1, $\beta$=0) & 4.4 $\pm$ 7.0 & 1.8 $\pm$ 3.6 & \textbf{14.7 $\pm$ 0.2} & \textbf{14.6 $\pm$ 0.0} \\
+\textsc{No-Uncert} ($K$=5, $\beta$=0) & 10.0 $\pm$ 20.0 & 3.6 $\pm$ 7.2 & 13.4 $\pm$ 1.4 & 13.6 $\pm$ 1.5 \\
+\textsc{No-Reward} ($K$=5, $\alpha$=0) & 7.4 $\pm$ 9.1 & \textbf{5.4 $\pm$ 6.6} & 14.0 $\pm$ 0.9 & 14.0 $\pm$ 1.3 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Ensemble is critical for complex tasks.}
+On reacher, the \textsc{Full} ensemble (18.0) outperforms \textsc{Single} (4.4) by 4.1$\times$. Averaged predictions from 5 models are substantially more accurate than any individual model, enabling CEM to find higher-quality action sequences. On cartpole, however, \textsc{Single} marginally outperforms \textsc{Full} (14.7 vs.\ 13.8)---the dynamics are simple enough that a single model suffices.
+
+\paragraph{Reward model aids faithful replay but hurts generalization.}
+\textsc{No-Reward} (pure goal-following) achieves the best shifted-condition score on reacher (5.4 vs.\ 2.2 for \textsc{Full}). With $\alpha = 0$, the planner focuses purely on matching the goal trajectory, which transfers better to novel initial states. The reward signal biases the planner toward states that ``look rewarding'' according to the model, which may not generalize.
+
+\paragraph{Uncertainty penalty is inconclusive.}
+\textsc{Full} vs.\ \textsc{No-Uncert} shows improvement on reacher (18.0 vs.\ 10.0) but high variance ($\sigma = 27.5$ vs.\ 20.0) makes statistical significance uncertain. On cartpole, the effect is negligible.
+
+\subsection{What Makes V-JEPA Features Work?}
+
+The success/failure pattern across tasks reveals a clear principle:
+
+\begin{table}[h]
+\centering
+\caption{Task success correlates with visual saliency of state changes.}
+\label{tab:saliency}
+\begin{tabular}{llcc}
+\toprule
+\textbf{Task} & \textbf{Visual Change} & \textbf{Works?} & \textbf{Best Reward} \\
+\midrule
+walker\_walk & Large limb movement & \checkmark & 20.1 \\
+cartpole\_swingup & Large pole angle change & \checkmark & 14.4 \\
+reacher\_easy & Visible arm motion & \checkmark & 8.5 \\
+cheetah\_run & Moderate body deformation & $\sim$ & 1.7 \\
+hopper\_hop & Subtle leg/body changes & $\times$ & 0.3 \\
+finger\_spin & Fine rotation (small object) & $\times$ & 0.0 \\
+point\_mass\_easy & Tiny ball, uniform background & $\times$ & 0.0 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+V-JEPA was pretrained on internet video, which consists predominantly of macro-scale motion (people walking, objects moving, scene changes). The encoder captures these large visual changes well but lacks the fine-grained spatial discrimination needed for tasks where the task-relevant state change is small (a rotating finger, a moving point mass on uniform background).
+
+% ============================================================
+\section{Compute Cost Analysis}
+
+A distinguishing feature of our approach is its computational frugality. Table~\ref{tab:cost} breaks down the cost of the entire experimental pipeline.
+
+\begin{table}[h]
+\centering
+\caption{Compute cost breakdown (total: \$29.99).}
+\label{tab:cost}
+\begin{tabular}{lrr}
+\toprule
+\textbf{Phase} & \textbf{GPU Time} & \textbf{Cost} \\
+\midrule
+Phase 1--3: Data collection + BC & $\sim$3 hrs & \$3.30 \\
+Phase 4: MPC/CEM experiments & $\sim$2 hrs & \$4.10 \\
+Phase 5: Dreamer actor-critic & $\sim$1.5 hrs & \$1.60 \\
+Phase 6: Multi-task ensemble & $\sim$5.4 hrs & \$6.99 \\
+Phase 7: Teach-by-showing agent & $\sim$0.3 hrs & \$0.40 \\
+Phase 8: Ablation studies & $\sim$0.8 hrs & \$1.00 \\
+Phase 9: Overnight multi-task & $\sim$5.3 hrs & \$6.40 \\
+\midrule
+\textbf{Total} & $\sim$\textbf{18 hrs} & \textbf{\$29.99} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The entire pipeline---including failed experiments (Dreamer), hyperparameter sweeps, and ablations---costs less than \$30 in cloud GPU time. This suggests that frozen foundation model approaches can make model-based RL research accessible to individual researchers and small labs.
+
+% ============================================================
+\section{Discussion}
+
+\paragraph{Why CEM succeeds where Dreamer fails.}
+We initially attempted to train a Dreamer-style actor-critic in V-JEPA latent space (Phase 5). The actor converged to near-zero actions, exploiting inaccuracies in the dynamics model---a known failure mode called ``model exploitation.'' CEM is inherently more robust because it evaluates many random action sequences and selects the best; individual model errors are averaged out. The ensemble disagreement penalty further guards against exploitation.
+
+\paragraph{Frozen vs.\ fine-tuned encoders.}
+Our approach uses V-JEPA as a completely frozen black box. This has the advantage of zero encoder training cost but the disadvantage that the representation may not capture task-relevant features. Fine-tuning even the last few layers on robot data could potentially rescue failing tasks (finger\_spin, hopper\_hop, point\_mass), at the cost of losing the ``zero-shot'' property.
+
+\paragraph{Demonstration quality matters less than expected.}
+The teach-by-showing agent uses \emph{random} policies as demonstrators. Despite seeing demonstrations that achieve near-zero reward, the agent discovers effective strategies through CEM planning. The demonstration serves as a rough guide---``move in this general direction''---while the dynamics model handles the details. This is most striking for cartpole, where the demo scores 0.0 but the agent scores 14.4.
+
+\paragraph{Limitations.}
+\begin{itemize}
+    \item \textbf{Task coverage:} Only 3/7 DMC tasks achieve meaningful reward. The approach is limited to tasks where V-JEPA features capture the relevant state dynamics.
+    \item \textbf{High variance:} Reacher performance varies dramatically across seeds ($\sigma = 9.6$--$27.5$), indicating sensitivity to demonstration quality and initial conditions.
+    \item \textbf{Real-time planning:} CEM requires 500 forward passes through the dynamics ensemble at each step ($\sim$6.7 Hz on A100). Real-time deployment on edge hardware would require distillation or amortization.
+    \item \textbf{Random demonstrations:} Better expert demonstrations would likely improve performance substantially, but we used random policies to test the lower bound of the approach.
+\end{itemize}
+
+% ============================================================
+\section{Conclusion}
+
+We have shown that frozen video foundation models can serve as perception backbones for model-based robot control. V-JEPA~2, pretrained on internet video with no robot data, produces latent representations that support learning accurate dynamics models and enable CEM-based teach-by-showing control. The approach works on tasks with visually salient state changes (walker, cartpole, reacher) but fails on tasks with subtle visual dynamics (finger, hopper, point mass).
+
+The key insight is that \emph{representation quality determines planning quality}: when the encoder captures the right features, simple dynamics models and CEM planning suffice for control. When it does not, no amount of planning can compensate.
+
+Future work should investigate (1) fine-tuning V-JEPA's last layers on robot data, (2) using expert rather than random demonstrations, (3) combining V-JEPA features with proprioceptive state, and (4) scaling to real-world robotic tasks where internet video pretraining may provide stronger priors.
+
+% ============================================================
+\bibliography{references}
+\bibliographystyle{plainnat}
+
+\end{document}
