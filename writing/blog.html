@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teaching Robots by Showing: Can a YouTube-Trained AI Brain Control a Robot?</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0a0a0f;
+            --surface: #12121a;
+            --surface-2: #1a1a2e;
+            --border: #2a2a3e;
+            --text: #e8e8f0;
+            --text-dim: #8888a0;
+            --accent: #6c5ce7;
+            --accent-glow: rgba(108, 92, 231, 0.15);
+            --success: #00b894;
+            --warning: #fdcb6e;
+            --danger: #e17055;
+            --info: #74b9ff;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.75;
+            font-size: 17px;
+        }
+
+        /* Hero */
+        .hero {
+            min-height: 70vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 4rem 2rem;
+            background: radial-gradient(ellipse at 50% 0%, rgba(108, 92, 231, 0.12) 0%, transparent 70%),
+                        var(--bg);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: repeating-linear-gradient(
+                0deg, transparent, transparent 50px,
+                rgba(108, 92, 231, 0.02) 50px, rgba(108, 92, 231, 0.02) 51px
+            ),
+            repeating-linear-gradient(
+                90deg, transparent, transparent 50px,
+                rgba(108, 92, 231, 0.02) 50px, rgba(108, 92, 231, 0.02) 51px
+            );
+        }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.4rem 1rem;
+            background: var(--accent-glow);
+            border: 1px solid rgba(108, 92, 231, 0.3);
+            border-radius: 100px;
+            font-size: 0.85rem;
+            color: var(--accent);
+            font-weight: 500;
+            margin-bottom: 2rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        .hero h1 {
+            font-size: clamp(2rem, 5vw, 3.5rem);
+            font-weight: 800;
+            line-height: 1.15;
+            max-width: 800px;
+            position: relative;
+            z-index: 1;
+            background: linear-gradient(135deg, #fff 30%, var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .hero p {
+            font-size: 1.15rem;
+            color: var(--text-dim);
+            max-width: 600px;
+            margin-top: 1.5rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        .hero-meta {
+            display: flex;
+            gap: 2rem;
+            margin-top: 2rem;
+            font-size: 0.9rem;
+            color: var(--text-dim);
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Container */
+        .container {
+            max-width: 760px;
+            margin: 0 auto;
+            padding: 0 2rem;
+        }
+
+        /* Sections */
+        section {
+            padding: 4rem 0;
+        }
+
+        section + section {
+            border-top: 1px solid var(--border);
+        }
+
+        h2 {
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+            color: #fff;
+        }
+
+        h3 {
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin: 2rem 0 1rem;
+            color: #fff;
+        }
+
+        p { margin-bottom: 1.25rem; }
+
+        /* TLDR */
+        .tldr {
+            background: linear-gradient(135deg, rgba(108, 92, 231, 0.1), rgba(116, 185, 255, 0.08));
+            border: 1px solid rgba(108, 92, 231, 0.2);
+            border-radius: 16px;
+            padding: 2rem;
+            margin: 2rem 0;
+        }
+
+        .tldr h3 {
+            margin-top: 0;
+            font-size: 1.1rem;
+            color: var(--accent);
+        }
+
+        .tldr p:last-child { margin-bottom: 0; }
+
+        /* Key insight boxes */
+        .insight {
+            background: var(--surface);
+            border-left: 3px solid var(--accent);
+            border-radius: 0 12px 12px 0;
+            padding: 1.5rem;
+            margin: 2rem 0;
+        }
+
+        .insight.success { border-left-color: var(--success); }
+        .insight.warning { border-left-color: var(--warning); }
+        .insight.danger  { border-left-color: var(--danger); }
+
+        .insight-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: 0.5rem;
+        }
+
+        .insight .insight-label { color: var(--accent); }
+        .insight.success .insight-label { color: var(--success); }
+        .insight.warning .insight-label { color: var(--warning); }
+        .insight.danger .insight-label { color: var(--danger); }
+
+        .insight p:last-child { margin-bottom: 0; }
+
+        /* Analogy boxes */
+        .analogy {
+            background: var(--surface-2);
+            border-radius: 12px;
+            padding: 1.5rem 1.5rem 1.5rem 3.5rem;
+            margin: 1.5rem 0;
+            position: relative;
+            font-style: italic;
+            color: var(--text-dim);
+        }
+
+        .analogy::before {
+            content: '💡';
+            position: absolute;
+            left: 1.2rem;
+            top: 1.4rem;
+            font-size: 1.2rem;
+            font-style: normal;
+        }
+
+        /* Figures */
+        .figure {
+            margin: 2.5rem 0;
+            text-align: center;
+        }
+
+        .figure img {
+            max-width: 100%;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+        }
+
+        .figure-caption {
+            margin-top: 0.75rem;
+            font-size: 0.88rem;
+            color: var(--text-dim);
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        /* Step cards */
+        .steps {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            margin: 2rem 0;
+        }
+
+        .step {
+            display: flex;
+            gap: 1.25rem;
+            align-items: flex-start;
+            background: var(--surface);
+            border-radius: 12px;
+            padding: 1.5rem;
+            border: 1px solid var(--border);
+            transition: border-color 0.2s;
+        }
+
+        .step:hover { border-color: var(--accent); }
+
+        .step-num {
+            flex-shrink: 0;
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            background: var(--accent-glow);
+            border: 1px solid rgba(108, 92, 231, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 1rem;
+            color: var(--accent);
+        }
+
+        .step-content h4 {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 0.3rem;
+        }
+
+        .step-content p {
+            font-size: 0.92rem;
+            color: var(--text-dim);
+            margin-bottom: 0;
+        }
+
+        /* Results cards */
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin: 2rem 0;
+        }
+
+        .result-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            text-align: center;
+        }
+
+        .result-card .emoji { font-size: 2rem; margin-bottom: 0.5rem; }
+        .result-card .task-name { font-weight: 600; font-size: 0.95rem; }
+        .result-card .score {
+            font-size: 2rem;
+            font-weight: 800;
+            margin: 0.5rem 0;
+        }
+        .result-card .desc {
+            font-size: 0.82rem;
+            color: var(--text-dim);
+        }
+
+        .result-card.win { border-color: var(--success); }
+        .result-card.win .score { color: var(--success); }
+        .result-card.meh { border-color: var(--warning); }
+        .result-card.meh .score { color: var(--warning); }
+        .result-card.fail { border-color: var(--danger); }
+        .result-card.fail .score { color: var(--danger); }
+
+        /* Bar chart */
+        .bar-chart {
+            margin: 2rem 0;
+        }
+
+        .bar-row {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .bar-label {
+            width: 160px;
+            font-size: 0.88rem;
+            text-align: right;
+            flex-shrink: 0;
+        }
+
+        .bar-track {
+            flex: 1;
+            height: 28px;
+            background: var(--surface);
+            border-radius: 6px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .bar-fill {
+            height: 100%;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            padding-left: 8px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: #fff;
+            transition: width 1s ease;
+        }
+
+        .bar-fill.green { background: linear-gradient(90deg, #00b894, #00cec9); }
+        .bar-fill.yellow { background: linear-gradient(90deg, #fdcb6e, #e17055); }
+        .bar-fill.red { background: linear-gradient(90deg, #e17055, #d63031); }
+        .bar-fill.gray { background: var(--border); }
+
+        /* Cost */
+        .cost-banner {
+            background: linear-gradient(135deg, rgba(0, 184, 148, 0.1), rgba(108, 92, 231, 0.1));
+            border: 1px solid rgba(0, 184, 148, 0.2);
+            border-radius: 16px;
+            padding: 2.5rem;
+            text-align: center;
+            margin: 2rem 0;
+        }
+
+        .cost-banner .amount {
+            font-size: 4rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--success), var(--info));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .cost-banner .label {
+            font-size: 1.1rem;
+            color: var(--text-dim);
+            margin-top: 0.5rem;
+        }
+
+        /* Comparison table */
+        .compare-table {
+            width: 100%;
+            margin: 1.5rem 0;
+            border-collapse: collapse;
+        }
+
+        .compare-table th {
+            text-align: left;
+            padding: 0.75rem 1rem;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-dim);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .compare-table td {
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid rgba(42, 42, 62, 0.5);
+            font-size: 0.92rem;
+        }
+
+        .compare-table tr:hover td { background: var(--surface); }
+
+        .tag {
+            display: inline-block;
+            padding: 0.15rem 0.6rem;
+            border-radius: 100px;
+            font-size: 0.78rem;
+            font-weight: 500;
+        }
+
+        .tag.green { background: rgba(0, 184, 148, 0.15); color: var(--success); }
+        .tag.red { background: rgba(225, 112, 85, 0.15); color: var(--danger); }
+        .tag.yellow { background: rgba(253, 203, 110, 0.15); color: var(--warning); }
+
+        /* Footer */
+        footer {
+            padding: 3rem 0;
+            border-top: 1px solid var(--border);
+            text-align: center;
+            color: var(--text-dim);
+            font-size: 0.9rem;
+        }
+
+        footer a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+
+        code {
+            font-family: 'JetBrains Mono', monospace;
+            background: var(--surface-2);
+            padding: 0.15em 0.4em;
+            border-radius: 4px;
+            font-size: 0.88em;
+        }
+
+        strong { color: #fff; }
+
+        @media (max-width: 600px) {
+            .hero { padding: 3rem 1.5rem; min-height: 50vh; }
+            .hero-meta { flex-direction: column; gap: 0.5rem; }
+            .results-grid { grid-template-columns: 1fr 1fr; }
+            .bar-label { width: 100px; font-size: 0.78rem; }
+            .step { flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ==================== HERO ==================== -->
+<header class="hero">
+    <div class="hero-badge">🤖 Robotics Research</div>
+    <h1>Teaching Robots by Showing: Can a YouTube-Trained AI Brain Control a Robot?</h1>
+    <p>We took Meta's V-JEPA 2 — an AI trained on internet video — and used it as a "brain" for virtual robots. No robot training data needed. Total cost: $30.</p>
+    <div class="hero-meta">
+        <span>👤 Thomas Vu Nguyen</span>
+        <span>📅 March 2026</span>
+        <span>⏱️ 10 min read</span>
+    </div>
+</header>
+
+<!-- ==================== TL;DR ==================== -->
+<div class="container">
+<section>
+    <div class="tldr">
+        <h3>⚡ TL;DR</h3>
+        <p>We plugged Meta's video AI (V-JEPA 2) into a robot planning system — <strong>without any retraining</strong>. The robot watches one demonstration, then tries to copy it using model-predictive control. It works on 3 out of 7 tasks, especially when the movements are big and visible. The best result? A walking robot that <em>outperforms</em> its own demonstration. All for under $30 in GPU costs.</p>
+    </div>
+</section>
+
+<!-- ==================== THE BIG IDEA ==================== -->
+<section>
+    <h2>🧠 The Big Idea</h2>
+
+    <p>Training a robot to see and understand the world is expensive. Most approaches train a vision system from scratch for each robot task, requiring millions of interactions.</p>
+
+    <p>But what if we could <strong>skip all that training</strong>?</p>
+
+    <p>Meta's V-JEPA 2 is an AI model that learned to understand video by watching tons of internet content. It learned concepts like "how objects move," "what motion looks like," and "how scenes change over time" — all without any labels or supervision.</p>
+
+    <div class="analogy">
+        Think of it like this: a person who has watched thousands of hours of cooking videos has built intuition about how kitchens work, even if they've never cooked. We're testing whether V-JEPA's "intuition" about visual motion transfers to robot control.
+    </div>
+
+    <p>Our question: <strong>Can we freeze this "internet video brain" and use it to control robots, without ever fine-tuning it on robot data?</strong></p>
+</section>
+
+<!-- ==================== HOW IT WORKS ==================== -->
+<section>
+    <h2>⚙️ How It Works</h2>
+
+    <p>The system has four main components, stacked like building blocks:</p>
+
+    <div class="figure">
+        <img src="figures/architecture.png" alt="System architecture diagram">
+        <p class="figure-caption">The complete pipeline: camera frames go through V-JEPA 2 (frozen, never retrained), then lightweight models predict what happens next, and a planner picks the best action.</p>
+    </div>
+
+    <div class="steps">
+        <div class="step">
+            <div class="step-num">1</div>
+            <div class="step-content">
+                <h4>The Eyes: V-JEPA 2 (Frozen)</h4>
+                <p>Every camera frame (224×224 pixels) goes through V-JEPA 2, which compresses it into a 1024-number summary. This captures the "essence" of what's happening — positions, shapes, motion — in a compact form. We never change V-JEPA; it's used exactly as Meta released it.</p>
+            </div>
+        </div>
+        <div class="step">
+            <div class="step-num">2</div>
+            <div class="step-content">
+                <h4>The Imagination: Dynamics Models</h4>
+                <p>Five small neural networks learn to predict "if the robot does action X in situation Y, what happens next?" They're trained on random robot exploration — just the robot flailing around — so they learn the physics of each environment. Having 5 models lets us measure uncertainty: if they disagree, the prediction is unreliable.</p>
+            </div>
+        </div>
+        <div class="step">
+            <div class="step-num">3</div>
+            <div class="step-content">
+                <h4>The Demonstration: "Watch This"</h4>
+                <p>A policy (even a random one!) performs the task once. Every frame is recorded and encoded through V-JEPA, creating a "goal trajectory" — a sequence of compressed snapshots showing what success looks like.</p>
+            </div>
+        </div>
+        <div class="step">
+            <div class="step-num">4</div>
+            <div class="step-content">
+                <h4>The Planner: CEM (Cross-Entropy Method)</h4>
+                <p>At each moment, the planner imagines 500 possible action sequences, simulates them using the dynamics models, and picks the one that (a) most closely follows the demonstration, (b) maximizes predicted reward, and (c) avoids actions where the models are uncertain. Then it takes the first action and replans.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="analogy">
+        Imagine driving to a friend's house. You watched a video of the route once (the demo). You know how steering works (dynamics model). At each intersection, you consider multiple turns, mentally simulate where each leads, and pick the one that best matches the video you remember. That's basically what CEM does — but 500 times per second.
+    </div>
+</section>
+
+<!-- ==================== DOES THE BRAIN UNDERSTAND? ==================== -->
+<section>
+    <h2>🔬 Does the Video Brain Actually Understand?</h2>
+
+    <p>Before testing robot control, we checked: what does V-JEPA actually "see"? We trained simple linear probes (basically a single equation) on top of frozen V-JEPA features to predict scene properties.</p>
+
+    <div class="figure">
+        <img src="figures/probe_summary.png" alt="Linear probe results">
+        <p class="figure-caption">V-JEPA features encode spatial information (position R²=0.77, size R²=0.82) and object identity (85% accuracy) far above random baselines — without any robot-specific training.</p>
+    </div>
+
+    <div class="insight success">
+        <div class="insight-label">✅ Key Finding</div>
+        <p>V-JEPA understands <strong>where things are</strong> (R²=0.77), <strong>how big they are</strong> (R²=0.82), and <strong>what they are</strong> (85% accuracy) — all from a model that never saw robot data. The "internet video brain" genuinely captures useful spatial information.</p>
+    </div>
+</section>
+
+<!-- ==================== RESULTS ==================== -->
+<section>
+    <h2>📊 Results: 3 Wins, 4 Failures</h2>
+
+    <p>We tested on 7 simulated robot tasks from DeepMind's Control Suite. Here's what happened:</p>
+
+    <div class="results-grid">
+        <div class="result-card win">
+            <div class="emoji">🚶</div>
+            <div class="task-name">Walker Walk</div>
+            <div class="score">20.1</div>
+            <div class="desc">Bipedal walking — big limb movements</div>
+        </div>
+        <div class="result-card win">
+            <div class="emoji">🎡</div>
+            <div class="task-name">Cartpole Swingup</div>
+            <div class="score">14.4</div>
+            <div class="desc">Pole balancing — large angle changes</div>
+        </div>
+        <div class="result-card win">
+            <div class="emoji">🎯</div>
+            <div class="task-name">Reacher Easy</div>
+            <div class="score">8.5</div>
+            <div class="desc">Arm reaching target — visible arm motion</div>
+        </div>
+        <div class="result-card meh">
+            <div class="emoji">🐆</div>
+            <div class="task-name">Cheetah Run</div>
+            <div class="score">1.7</div>
+            <div class="desc">Quadruped — moderate body changes</div>
+        </div>
+        <div class="result-card fail">
+            <div class="emoji">🦘</div>
+            <div class="task-name">Hopper Hop</div>
+            <div class="score">0.3</div>
+            <div class="desc">Subtle leg movements</div>
+        </div>
+        <div class="result-card fail">
+            <div class="emoji">🫰</div>
+            <div class="task-name">Finger Spin</div>
+            <div class="score">0.0</div>
+            <div class="desc">Tiny rotation — too small to see</div>
+        </div>
+        <div class="result-card fail">
+            <div class="emoji">⚫</div>
+            <div class="task-name">Point Mass</div>
+            <div class="score">0.0</div>
+            <div class="desc">Tiny ball on plain background</div>
+        </div>
+    </div>
+
+    <p>The pattern is clear: <strong>the bigger the visual movement, the better the robot performs.</strong></p>
+
+    <div class="bar-chart">
+        <div class="bar-row">
+            <div class="bar-label">Walker Walk</div>
+            <div class="bar-track"><div class="bar-fill green" style="width:67%">20.1</div></div>
+        </div>
+        <div class="bar-row">
+            <div class="bar-label">Cartpole Swingup</div>
+            <div class="bar-track"><div class="bar-fill green" style="width:48%">14.4</div></div>
+        </div>
+        <div class="bar-row">
+            <div class="bar-label">Reacher Easy</div>
+            <div class="bar-track"><div class="bar-fill yellow" style="width:28%">8.5</div></div>
+        </div>
+        <div class="bar-row">
+            <div class="bar-label">Cheetah Run</div>
+            <div class="bar-track"><div class="bar-fill red" style="width:6%">1.7</div></div>
+        </div>
+        <div class="bar-row">
+            <div class="bar-label">Hopper Hop</div>
+            <div class="bar-track"><div class="bar-fill gray" style="width:1%"></div></div>
+        </div>
+        <div class="bar-row">
+            <div class="bar-label">Finger Spin</div>
+            <div class="bar-track"><div class="bar-fill gray" style="width:0.5%"></div></div>
+        </div>
+        <div class="bar-row">
+            <div class="bar-label">Point Mass</div>
+            <div class="bar-track"><div class="bar-fill gray" style="width:0.5%"></div></div>
+        </div>
+    </div>
+
+    <div class="figure">
+        <img src="figures/reacher_frame.png" alt="Reacher task" style="max-width: 200px;">
+        <p class="figure-caption">The reacher task: a 2-joint arm (yellow) must reach the red target ball. V-JEPA can see this because the movements are big and colorful.</p>
+    </div>
+</section>
+
+<!-- ==================== SURPRISE ==================== -->
+<section>
+    <h2>🎉 Two Surprising Discoveries</h2>
+
+    <h3>1. The Walker Beats Its Own Demo</h3>
+
+    <p>When we start the walker robot from a <em>different</em> position than the demonstration, it actually scores <strong>higher</strong> (20.1) than when replaying exactly (13.5).</p>
+
+    <div class="insight success">
+        <div class="insight-label">🤯 Why This Matters</div>
+        <p>This proves the robot isn't just memorizing and replaying. It's actually <strong>understanding the goal</strong> and finding its own strategy. Starting from a different position, it discovers more efficient walking patterns guided by its "imagination" (the dynamics model).</p>
+    </div>
+
+    <h3>2. The Cartpole Invents a Skill It Never Saw</h3>
+
+    <p>The demonstration for cartpole was from a <em>random policy</em> — it scored 0.0 (complete failure at swinging up the pole). Yet our robot scores <strong>14.4</strong>.</p>
+
+    <div class="analogy">
+        It's like showing someone a terrible cooking video where everything goes wrong, and they still figure out how to make the dish — because they understand the physics of cooking, not just the specific steps shown.
+    </div>
+
+    <div class="figure">
+        <img src="figures/cem_metrics.png" alt="CEM planning metrics">
+        <p class="figure-caption"><strong>Left:</strong> During an episode, the robot's "mental distance" to the goal decreases steadily — it's tracking the demonstration. <strong>Right:</strong> Reward starts accumulating around step 100 when the robot reaches the right region.</p>
+    </div>
+</section>
+
+<!-- ==================== WHY SOME FAIL ==================== -->
+<section>
+    <h2>❌ Why 4 Tasks Failed</h2>
+
+    <p>The failures reveal an important insight about what the "video brain" actually sees:</p>
+
+    <table class="compare-table">
+        <thead>
+            <tr>
+                <th>Task</th>
+                <th>Visual Change</th>
+                <th>Result</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>🚶 Walker</td>
+                <td>Big limb swings across the screen</td>
+                <td><span class="tag green">Works</span></td>
+            </tr>
+            <tr>
+                <td>🎡 Cartpole</td>
+                <td>Pole swings through large angles</td>
+                <td><span class="tag green">Works</span></td>
+            </tr>
+            <tr>
+                <td>🎯 Reacher</td>
+                <td>Visible arm stretches toward target</td>
+                <td><span class="tag green">Works</span></td>
+            </tr>
+            <tr>
+                <td>🐆 Cheetah</td>
+                <td>Body deforms moderately</td>
+                <td><span class="tag yellow">Barely</span></td>
+            </tr>
+            <tr>
+                <td>🦘 Hopper</td>
+                <td>Subtle leg/body position changes</td>
+                <td><span class="tag red">Fails</span></td>
+            </tr>
+            <tr>
+                <td>🫰 Finger</td>
+                <td>Tiny object rotation, small on screen</td>
+                <td><span class="tag red">Fails</span></td>
+            </tr>
+            <tr>
+                <td>⚫ Point Mass</td>
+                <td>Tiny ball on plain blue background</td>
+                <td><span class="tag red">Fails</span></td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div class="insight warning">
+        <div class="insight-label">⚠️ The Rule</div>
+        <p>V-JEPA learned from internet videos — people walking, objects moving, big visual changes. It's great at spotting large, colorful motion. But it can't distinguish a finger rotated 10° from 15°, or a tiny ball at position (0.3, 0.4) vs (0.35, 0.42). <strong>The video brain sees the big picture, not the fine details.</strong></p>
+    </div>
+</section>
+
+<!-- ==================== ABLATION ==================== -->
+<section>
+    <h2>🧪 What Actually Matters? (Ablation Study)</h2>
+
+    <p>We tested removing each component to see what's actually important:</p>
+
+    <div class="steps">
+        <div class="step">
+            <div class="step-num" style="background: rgba(0,184,148,0.15); color: var(--success); border-color: rgba(0,184,148,0.3);">✓</div>
+            <div class="step-content">
+                <h4>Ensemble of 5 models: Critical for complex tasks</h4>
+                <p>With 5 dynamics models instead of 1, the reacher improves 4.1× (from 4.4 to 18.0). But on simple cartpole, a single model is actually slightly better. Lesson: match model complexity to task complexity.</p>
+            </div>
+        </div>
+        <div class="step">
+            <div class="step-num" style="background: rgba(253,203,110,0.15); color: var(--warning); border-color: rgba(253,203,110,0.3);">~</div>
+            <div class="step-content">
+                <h4>Uncertainty penalty: Helps but noisy</h4>
+                <p>Penalizing actions where the 5 models disagree helps on reacher (18.0 vs 10.0) but the improvement is within noise. The idea is sound but needs more data to confirm.</p>
+            </div>
+        </div>
+        <div class="step">
+            <div class="step-num" style="background: rgba(225,112,85,0.15); color: var(--danger); border-color: rgba(225,112,85,0.3);">!</div>
+            <div class="step-content">
+                <h4>Reward model: Hurts generalization</h4>
+                <p>Surprisingly, removing the reward model actually <em>improves</em> shifted-condition performance on reacher (5.4 vs 2.2). The reward signal overfits to familiar states and doesn't transfer to new starting positions.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="figure">
+        <img src="figures/dynamics_loss.png" alt="Dynamics training loss" style="max-width: 500px;">
+        <p class="figure-caption">Dynamics models converge rapidly — reaching near-zero prediction error within 100 training epochs. The "imagination" becomes accurate fast.</p>
+    </div>
+</section>
+
+<!-- ==================== COST ==================== -->
+<section>
+    <h2>💰 Total Cost: Less Than a Nice Dinner</h2>
+
+    <div class="cost-banner">
+        <div class="amount">$29.99</div>
+        <div class="label">Total GPU cost for the entire research project</div>
+    </div>
+
+    <p>This includes <em>everything</em> — data collection, model training, failed experiments, ablation studies, and 7-task evaluation. The breakdown:</p>
+
+    <div class="bar-chart">
+        <div class="bar-row">
+            <div class="bar-label">Multi-task eval</div>
+            <div class="bar-track"><div class="bar-fill green" style="width:46%">$6.99</div></div>
+        </div>
+        <div class="bar-row">
+            <div class="bar-label">Overnight eval</div>
+            <div class="bar-track"><div class="bar-fill green" style="width:43%">$6.40</div></div>
+        </div>
+        <div class="bar-row">
+            <div class="bar-label">MPC experiments</div>
+            <div class="bar-track"><div class="bar-fill yellow" style="width:27%">$4.10</div></div>
+        </div>
+        <div class="bar-row">
+            <div class="bar-label">Data collection</div>
+            <div class="bar-track"><div class="bar-fill yellow" style="width:22%">$3.30</div></div>
+        </div>
+        <div class="bar-row">
+            <div class="bar-label">Dreamer (failed)</div>
+            <div class="bar-track"><div class="bar-fill red" style="width:11%">$1.60</div></div>
+        </div>
+        <div class="bar-row">
+            <div class="bar-label">Ablation studies</div>
+            <div class="bar-track"><div class="bar-fill green" style="width:7%">$1.00</div></div>
+        </div>
+        <div class="bar-row">
+            <div class="bar-label">Teach-by-showing</div>
+            <div class="bar-track"><div class="bar-fill green" style="width:3%">$0.40</div></div>
+        </div>
+    </div>
+
+    <div class="insight success">
+        <div class="insight-label">💡 Why This Matters</div>
+        <p>Most robot learning papers use thousands of dollars of GPU compute. By freezing the large model and only training tiny modules, we make this research accessible to <strong>anyone with $30 and a rented GPU</strong>.</p>
+    </div>
+</section>
+
+<!-- ==================== TAKEAWAY ==================== -->
+<section>
+    <h2>🎯 The Bottom Line</h2>
+
+    <h3>What We Proved</h3>
+    <p>Video AI models trained on internet data <em>do</em> capture useful information for robot control — but only for tasks with big, visible movements. The "internet video brain" sees the world like a casual YouTube viewer: it catches the big stuff, misses the subtle details.</p>
+
+    <h3>The Key Insight</h3>
+    <div class="insight">
+        <div class="insight-label">💎 Core Finding</div>
+        <p><strong>Representation quality determines planning quality.</strong> When V-JEPA captures the right features, even simple planning works. When it doesn't, no amount of clever planning can compensate. The bottleneck is what the AI "sees," not how it "thinks."</p>
+    </div>
+
+    <h3>What's Next?</h3>
+    <p>To push this further, the most promising directions are:</p>
+    <ol style="padding-left: 1.5rem; margin-bottom: 1.5rem;">
+        <li style="margin-bottom: 0.5rem"><strong>Fine-tune the last few layers</strong> of V-JEPA on robot data (trade some "zero-shot" purity for better performance)</li>
+        <li style="margin-bottom: 0.5rem"><strong>Use expert demonstrations</strong> instead of random ones</li>
+        <li style="margin-bottom: 0.5rem"><strong>Add proprioceptive data</strong> (joint angles, velocities) alongside vision</li>
+        <li style="margin-bottom: 0.5rem"><strong>Test on real robots</strong> where internet video priors may be even more useful</li>
+    </ol>
+</section>
+</div>
+
+<!-- ==================== FOOTER ==================== -->
+<footer>
+    <div class="container">
+        <p>Thomas Vu Nguyen · March 2026 · <a href="mailto:thomas@beenex.ai">thomas@beenex.ai</a></p>
+        <p style="margin-top: 0.5rem;">Full technical paper available as <a href="main.pdf">LaTeX PDF</a> · Code on <a href="https://github.com/ThomasVuNguyen/Meta-s-Jepa">GitHub</a></p>
+    </div>
+</footer>
+
+</body>
+</html>

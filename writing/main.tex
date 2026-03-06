@@ -16,7 +16,7 @@
 \title{\textbf{Teach-by-Showing: Zero-Shot Robot Control via \\Frozen Video Foundation Models and CEM Planning}}
 
 \author{
-Thomas Vu Nguyen \\
+Tung (Thomas) Vu Nguyen Nguyen \\
 \texttt{thomas@beenex.ai}
 }
 
@@ -79,7 +79,7 @@ We use V-JEPA~2 ViT-L~\citep{bardes2024vjepa} (325M parameters) as a frozen feat
 \begin{figure}[h]
 \centering
 \includegraphics[width=0.8\linewidth]{figures/probe_summary.png}
-\caption{\textbf{V-JEPA~2 linear probe results.} A single linear layer trained on frozen V-JEPA features can predict object XY position (R$^2$=0.77), object size (R$^2$=0.82), and object class (85\% accuracy) far above random baselines.}
+\caption{\textbf{V-JEPA~2 linear probe results.} A single linear layer trained on frozen V-JEPA features can predict object XY position (R$^2$=0.86), object size (R$^2$=0.89), and object class (88.4\% accuracy) far above random baselines.}
 \label{fig:probe}
 \end{figure}
 
@@ -115,7 +115,7 @@ Given a goal trajectory $\{\mathbf{z}_t^{\text{goal}}\}_{t=1}^{T}$ from a demons
     \FOR{each horizon step $h$}
         \STATE $\hat{\mathbf{z}}_{t+h}^{(k,m)} = f_k(\mathbf{z}_{t+h-1}^{(m)}, \mathbf{a}_h^{(m)})$ for $k = 1, \ldots, K$
         \STATE $\hat{\mathbf{z}}_{t+h}^{(m)} = \frac{1}{K} \sum_k \hat{\mathbf{z}}_{t+h}^{(k,m)}$ \hfill \textit{(ensemble mean)}
-        \STATE $S^{(m)} \mathrel{+}= \alpha \cdot \hat{r}_h - \|\hat{\mathbf{z}}_{t+h}^{(m)} - \mathbf{z}_{t+h}^{\text{goal}}\|_2 - \beta \cdot \text{std}_k(\hat{\mathbf{z}}^{(k,m)})$ \hfill \textit{(scoring)}
+        \STATE $S^{(m)} \mathrel{+}= \alpha \cdot \hat{r}_h - \|\hat{\mathbf{z}}_{t+h}^{(m)} - \mathbf{z}_{t+h}^{\text{goal}}\|_2 - \beta \cdot \overline{\sigma}_k(\hat{\mathbf{z}}^{(k,m)})$ \hfill \textit{(scoring)}
     \ENDFOR
     \STATE Select top-$E$ elite sequences by score $S^{(m)}$
     \STATE Update: $\boldsymbol{\mu} \leftarrow \text{mean}(\text{elites})$, $\boldsymbol{\sigma} \leftarrow \text{std}(\text{elites})$
@@ -128,7 +128,7 @@ The scoring function balances three objectives:
 \begin{itemize}
     \item \textbf{Goal tracking}: Minimize Euclidean distance to the goal trajectory in latent space.
     \item \textbf{Reward maximization}: Weight $\alpha = 5.0$ amplifies predicted reward.
-    \item \textbf{Uncertainty penalty}: Weight $\beta = 2.0$ penalizes ensemble disagreement, preventing exploitation of dynamics model errors.
+    \item \textbf{Uncertainty penalty}: Weight $\beta = 2.0$ penalizes ensemble disagreement (mean per-dimension standard deviation across ensemble members), preventing exploitation of dynamics model errors.
 \end{itemize}
 
 Default hyperparameters: $M=500$ candidates, $E=50$ elites, $N_{\text{iter}}=5$ iterations, horizon $H=8$, lookahead $L=15$.
@@ -239,7 +239,7 @@ Three tasks achieve meaningful reward: walker\_walk (20.1 shifted), cartpole\_sw
 The walker agent achieves \emph{higher} reward under shifted conditions (20.1) than faithful replay (13.5). This is the strongest evidence that the agent performs goal-conditioned planning rather than trajectory memorization: starting from different states, it discovers more efficient locomotion strategies guided by the dynamics model.
 
 \paragraph{Cartpole beats the expert.}
-The cartpole demonstrations score 0.0 reward (the random policy fails at swingup). Yet the CEM agent scores 14.4, an emergent capability arising from dynamics-guided planning rather than demonstration imitation. The agent discovers an effective swingup strategy despite never observing one.
+The cartpole demonstrations score near-zero reward (the heuristic policy largely fails at swingup, averaging $\sim$1.0 cumulative reward). Yet the CEM agent scores 14.4, an emergent capability arising from dynamics-guided planning rather than demonstration imitation. The agent discovers an effective swingup strategy despite never observing one.
 
 \subsection{Ablation Studies}
 
