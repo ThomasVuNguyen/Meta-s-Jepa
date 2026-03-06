@@ -50,6 +50,17 @@ Four probes compared on the same **11,375 consecutive pairs**:
 
 **Delta improvement:** −4.6% (Δz is *worse* than raw z)
 
+### Compute Cost (Experiment 2a)
+
+| Step | Hardware | Duration | Est. Cost |
+|------|----------|----------|-----------|
+| Video download + frame extraction | CPU | ~5 min | $0.00 |
+| V-JEPA 2 embedding extraction (11,375 frames × 2 passes) | Modal A10G | ~35 min | ~$0.64 |
+| Linear probe training (4 variants, scikit-learn) | CPU | <1 min | ~$0.00 |
+| **Total** | | **~36 min** | **~$0.64** |
+
+> A10G rate: $1.10/hr (Modal pay-per-use). Embeddings cached to volume — future probes re-run in <1 min at $0.00.
+
 ### Findings
 
 **Hypothesis rejected.** Temporal delta embeddings do not improve motion direction prediction — they slightly harm it.
@@ -116,6 +127,18 @@ Val MSE fell from 0.198 → **0.0185** in 50 epochs with no overfitting (train �
 
 ![Spatial Probe Results](assets/dynamics_summary.png)
 
+### Compute Cost (Experiment 2b)
+
+| Step | Hardware | Duration | Est. Cost |
+|------|----------|----------|-----------|
+| DMControl rollout collection (3 envs × 25 eps × 200 steps) | Modal CPU (4 cores) | ~18 min | ~$0.06 |
+| V-JEPA 2 embedding extraction (14,925 frames × 2 passes) | Modal A10G | ~50 min | ~$0.92 |
+| Dynamics MLP training (50 epochs, 14k samples) | Modal A10G | ~3 min | ~$0.06 |
+| YOLO labeling + validation probe | Modal A10G | ~5 min | ~$0.09 |
+| **Total** | | **~76 min** | **~$1.13** |
+
+> Rollouts cached to `vjepa2-rollout-cache` volume — subsequent training runs skip Stage 1 entirely.
+
 ### Findings
 
 **The dynamics MLP successfully learns latent transition structure:**
@@ -137,3 +160,15 @@ Most likely a YOLO labeling alignment artifact — labels were pulled from z_t f
 *Cached rollouts:* `vjepa2-rollout-cache` Modal volume  
 *Trained model:* `vjepa2-decoder-output` → `dynamics_mlp.pt`  
 *Raw results:* `decoder_output/delta_probe_results.json` · `decoder_output/dynamics_validation.json`
+
+---
+
+### Cumulative Compute (Findings 2)
+
+| Experiment | GPU Time | CPU Time | Total Cost |
+|-----------|----------|----------|------------|
+| 1 — Initial probe (findings_1) | ~40 min A10G | ~5 min | ~$0.73 |
+| 2a — Delta probe | ~35 min A10G | ~5 min | ~$0.64 |
+| 2b — Dynamics MLP | ~58 min A10G | ~18 min | ~$1.13 |
+| **Findings 2 total** | **~93 min A10G** | **~23 min** | **~$1.77** |
+| **Running total (all findings)** | **~133 min A10G** | **~28 min** | **~$2.50** |
