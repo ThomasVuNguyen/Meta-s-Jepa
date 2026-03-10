@@ -1,0 +1,51 @@
+{
+  "experiment": 10,
+  "env": "walker-walk",
+  "approach": "robust replay buffer + parallel embedding + dyna warm-start",
+  "n_dyna_rounds": 3,
+  "rollouts_per_round": 60,
+  "ft_lr": 5e-05,
+  "ft_epochs": 15,
+  "rw_lr": 0.001,
+  "rw_epochs": 20,
+  "rounds": [
+    {
+      "round": 0,
+      "n_train": 22999,
+      "avg_mpc_reward": 6.415828037261963,
+      "avg_rand_reward": 4.573012208938598,
+      "pct_better": 70.0,
+      "reward_head_val": 0.42829057574272156
+    },
+    {
+      "round": 1,
+      "n_train_dynamics": 28999,
+      "n_train_reward": 9000,
+      "avg_mpc_reward": 6.142899966239929,
+      "avg_rand_reward": 5.688607597351075,
+      "pct_better": 60.0,
+      "dyn_val_loss": 0.028841532766819,
+      "reward_head_val": 0.06983406096696854
+    },
+    {
+      "round": 2,
+      "n_train_dynamics": 34999,
+      "n_train_reward": 15000,
+      "avg_mpc_reward": 6.646687769889832,
+      "avg_rand_reward": 4.496061158180237,
+      "pct_better": 100.0,
+      "dyn_val_loss": 0.024176735430955887,
+      "reward_head_val": 0.08390884846448898
+    },
+    {
+      "round": 3,
+      "n_train_dynamics": 40999,
+      "n_train_reward": 21000,
+      "avg_mpc_reward": 5.476495552062988,
+      "avg_rand_reward": 5.776015400886536,
+      "pct_better": 60.0,
+      "dyn_val_loss": 0.02313685044646263,
+      "reward_head_val": 0.14309455454349518
+    }
+  ]
+}

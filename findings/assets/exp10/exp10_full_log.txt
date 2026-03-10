@@ -1,0 +1,185 @@
+nohup: ignoring input
+✓ Initialized. View run at 
+https://modal.com/apps/thomas-15/main/ap-EUe7HU5OPTiurBt3W1cYal
+✓ Created objects.
+├── 🔨 Created mount 
+│   /home/thomas/development/experiments/Meta-s-Jepa/decoder/vjepa_walker_replay
+│   _buffer_modal.py
+├── 🔨 Created function embed_chunk.
+└── 🔨 Created function walker_reward_dyna_experiment.
+======================================================================
+META-S-JEPA  Experiment 9: Walker-Walk Frozen Reward Head
+======================================================================
+
+[1] Loading V-JEPA 2 encoder...
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+
+[1ALoading weights:   0%|          | 0/587 [00:00<?, ?it/s]
+[1ALoading weights:   5%|▍         | 28/587 [00:00<00:02, 274.31it/s]
+[1ALoading weights:  10%|▉         | 56/587 [00:00<00:03, 151.83it/s]
+[1ALoading weights:  16%|█▌        | 94/587 [00:00<00:02, 221.38it/s]
+[1ALoading weights:  23%|██▎       | 135/587 [00:00<00:01, 275.48it/s]
+[1ALoading weights:  44%|████▍     | 259/587 [00:00<00:00, 566.32it/s]
+[1ALoading weights: 100%|██████████| 587/587 [00:00<00:00, 885.99it/s]
+
+[2] Loading offline raw walker frames from /rollouts/walker_walk...
+    Found existing offline embeddings cache! Loading...
+/root/vjepa_walker_replay_buffer_modal.py:268: FutureWarning: You are using `torch.load` with `weights_only=False` (the current default value), which uses the default pickle module implicitly. It is possible to construct malicious pickle data which will execute arbitrary code during unpickling (See https://github.com/pytorch/pytorch/blob/main/SECURITY.md#untrusted-models for more details). In a future release, the default value for `weights_only` will be flipped to `True`. This limits the functions that could be executed during unpickling. Arbitrary objects will no longer be allowed to be loaded via this mode unless they are explicitly allowlisted by the user via `torch.serialization.add_safe_globals`. We recommend you start setting `weights_only=True` for any use case where you don't have full control of the loaded file. Please open an issue on GitHub for any issues related to this experimental feature.
+  cache = torch.load(cache_file, map_location="cpu")
+    Loaded 19999 offline transitions.
+    Offline dataset: 19999 transitions  (loaded in 0.0 min)
+
+[3] Loading Exp6 walker dynamics MLP checkpoint (warm start)...
+/root/vjepa_walker_replay_buffer_modal.py:306: FutureWarning: You are using `torch.load` with `weights_only=False` (the current default value), which uses the default pickle module implicitly. It is possible to construct malicious pickle data which will execute arbitrary code during unpickling (See https://github.com/pytorch/pytorch/blob/main/SECURITY.md#untrusted-models for more details). In a future release, the default value for `weights_only` will be flipped to `True`. This limits the functions that could be executed during unpickling. Arbitrary objects will no longer be allowed to be loaded via this mode unless they are explicitly allowlisted by the user via `torch.serialization.add_safe_globals`. We recommend you start setting `weights_only=True` for any use case where you don't have full control of the loaded file. Please open an issue on GitHub for any issues related to this experimental feature.
+  ckpt = torch.load(ckpt_path, map_location=device)
+    ✓ Loaded walker_dynamics_mlp.pt  val_loss=0.03773721307516098
+
+[4] Collecting initial labelled rollouts (random policy, with rewards)...
+    Seed rollouts: 3000 labelled transitions in 8.5 min
+
+[5] Training initial reward head...
+    Reward head trained in 0.0 min  val_loss=0.4283
+
+--- Round 0: Baseline Eval (Exp6 dynamics + new reward head) ---
+      ep1: MPC=11.0  rand=5.6  ✅
+      ep2: MPC=10.6  rand=4.0  ✅
+      ep3: MPC=2.4  rand=4.6  ❌
+      ep4: MPC=2.8  rand=3.3  ❌
+      ep5: MPC=3.3  rand=3.1  ✅
+      ep6: MPC=4.2  rand=3.8  ✅
+      ep7: MPC=11.5  rand=7.7  ✅
+      ep8: MPC=7.0  rand=4.0  ✅
+      ep9: MPC=3.3  rand=3.9  ❌
+      ep10: MPC=8.1  rand=5.8  ✅
+  R0: MPC=6.42  rand=4.57  win=70%  [6.0min]
+
+--- Round 1: Collect 60 on-policy rollouts ---
+    Collected 6000 on-policy transitions in 18.8 min
+    Total dynamics dataset: 28999
+    Total reward dataset:   9000 labelled
+    Fine-tuning dynamics for 15 epochs (lr=5e-05)...
+    Dynamics FT done in 0.1 min  val_loss=0.0288
+    Re-training reward head for 20 epochs (lr=0.001)...
+    Reward head done in 0.0 min  val=0.0698
+    Evaluating round 1...
+      ep1: MPC=12.7  rand=5.5  ✅
+      ep2: MPC=10.2  rand=5.1  ✅
+      ep3: MPC=7.2  rand=5.1  ✅
+      ep4: MPC=4.8  rand=4.3  ✅
+      ep5: MPC=3.8  rand=11.7  ❌
+      ep6: MPC=4.9  rand=5.0  ❌
+      ep7: MPC=3.9  rand=3.6  ✅
+      ep8: MPC=2.5  rand=5.1  ❌
+      ep9: MPC=8.3  rand=7.7  ✅
+      ep10: MPC=3.1  rand=3.6  ❌
+  R1: MPC=6.14  rand=5.69  win=60%  dyn_val=0.0288  rw_val=0.0698
+
+--- Round 2: Collect 60 on-policy rollouts ---
+    Collected 6000 on-policy transitions in 18.7 min
+    Total dynamics dataset: 34999
+    Total reward dataset:   15000 labelled
+    Fine-tuning dynamics for 15 epochs (lr=5e-05)...
+    Dynamics FT done in 0.1 min  val_loss=0.0242
+    Re-training reward head for 20 epochs (lr=0.001)...
+    Reward head done in 0.0 min  val=0.0839
+    Evaluating round 2...
+      ep1: MPC=12.2  rand=4.2  ✅
+      ep2: MPC=4.6  rand=3.6  ✅
+      ep3: MPC=5.2  rand=4.2  ✅
+      ep4: MPC=8.0  rand=7.2  ✅
+      ep5: MPC=5.0  rand=4.6  ✅
+      ep6: MPC=5.9  rand=5.4  ✅
+      ep7: MPC=5.8  rand=3.3  ✅
+      ep8: MPC=9.5  rand=5.0  ✅
+      ep9: MPC=7.0  rand=4.2  ✅
+      ep10: MPC=3.4  rand=3.2  ✅
+  R2: MPC=6.65  rand=4.50  win=100%  dyn_val=0.0242  rw_val=0.0839
+
+--- Round 3: Collect 60 on-policy rollouts ---
+    Collected 6000 on-policy transitions in 18.8 min
+    Total dynamics dataset: 40999
+    Total reward dataset:   21000 labelled
+    Fine-tuning dynamics for 15 epochs (lr=5e-05)...
+    Dynamics FT done in 0.2 min  val_loss=0.0231
+    Re-training reward head for 20 epochs (lr=0.001)...
+    Reward head done in 0.1 min  val=0.1431
+    Evaluating round 3...
+      ep1: MPC=3.6  rand=3.7  ❌
+      ep2: MPC=5.5  rand=5.4  ✅
+      ep3: MPC=4.0  rand=4.9  ❌
+      ep4: MPC=5.0  rand=4.3  ✅
+      ep5: MPC=4.5  rand=4.6  ❌
+      ep6: MPC=7.1  rand=5.6  ✅
+      ep7: MPC=5.2  rand=4.1  ✅
+      ep8: MPC=5.3  rand=16.2  ❌
+      ep9: MPC=5.6  rand=4.5  ✅
+      ep10: MPC=9.0  rand=4.5  ✅
+  R3: MPC=5.48  rand=5.78  win=60%  dyn_val=0.0231  rw_val=0.1431
+/root/vjepa_walker_replay_buffer_modal.py:529: UserWarning: marker is redundantly defined by the 'marker' keyword argument and the fmt string "o-" (-> marker='o'). The keyword argument will take precedence.
+  ax2.plot(rounds, wins, "o-", color="#4CAF50", lw=2, marker="D")
+{
+  "experiment": 9,
+  "env": "walker-walk",
+  "approach": "frozen reward head + warm-start dyna",
+  "n_dyna_rounds": 3,
+  "rollouts_per_round": 60,
+  "ft_lr": 5e-05,
+  "ft_epochs": 15,
+  "rw_lr": 0.001,
+  "rw_epochs": 20,
+  "rounds": [
+    {
+      "round": 0,
+      "n_train": 22999,
+      "avg_mpc_reward": 6.415828037261963,
+      "avg_rand_reward": 4.573012208938598,
+      "pct_better": 70.0,
+      "reward_head_val": 0.42829057574272156
+    },
+    {
+      "round": 1,
+      "n_train_dynamics": 28999,
+      "n_train_reward": 9000,
+      "avg_mpc_reward": 6.142899966239929,
+      "avg_rand_reward": 5.688607597351075,
+      "pct_better": 60.0,
+      "dyn_val_loss": 0.028841532766819,
+      "reward_head_val": 0.06983406096696854
+    },
+    {
+      "round": 2,
+      "n_train_dynamics": 34999,
+      "n_train_reward": 15000,
+      "avg_mpc_reward": 6.646687769889832,
+      "avg_rand_reward": 4.496061158180237,
+      "pct_better": 100.0,
+      "dyn_val_loss": 0.024176735430955887,
+      "reward_head_val": 0.08390884846448898
+    },
+    {
+      "round": 3,
+      "n_train_dynamics": 40999,
+      "n_train_reward": 21000,
+      "avg_mpc_reward": 5.476495552062988,
+      "avg_rand_reward": 5.776015400886536,
+      "pct_better": 60.0,
+      "dyn_val_loss": 0.02313685044646263,
+      "reward_head_val": 0.14309455454349518
+    }
+  ]
+}
+
+=== EXPERIMENT 10 COMPLETE ===
+  R0: MPC=6.42  rand=4.57  win=70%  rw_val=0.4283
+  R1: MPC=6.14  rand=5.69  win=60%  rw_val=0.0698
+  R2: MPC=6.65  rand=4.50  win=100%  rw_val=0.0839
+  R3: MPC=5.48  rand=5.78  win=60%  rw_val=0.1431
+  ✓ walker_reward_dyna_results.json
+  ✓ walker_reward_dyna_results.png
+  ✓ walker_reward_dyn_rN.pt / walker_reward_head_rN.pt
+Stopping app - local entrypoint completed.
+[modal-client] 2026-03-10T00:31:48+0000 Detected 4 background thread(s) [ThreadPoolExecutor-1_0, ThreadPoolExecutor-2_0, ThreadPoolExecutor-3_0, ThreadPoolExecutor-4_0] still running after container exit. This will prevent runner shutdown for up to 30 seconds.
+WARNING:modal-client:Detected 4 background thread(s) [ThreadPoolExecutor-1_0, ThreadPoolExecutor-2_0, ThreadPoolExecutor-3_0, ThreadPoolExecutor-4_0] still running after container exit. This will prevent runner shutdown for up to 30 seconds.
+✓ App completed. View run at 
+https://modal.com/apps/thomas-15/main/ap-EUe7HU5OPTiurBt3W1cYal

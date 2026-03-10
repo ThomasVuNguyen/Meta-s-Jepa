@@ -1,0 +1,41 @@
+{
+  "experiment": 8,
+  "env": "walker-walk",
+  "approach": "task-aligned reward head + warm-start dyna",
+  "n_dyna_rounds": 2,
+  "rollouts_per_round": 60,
+  "ft_lr": 5e-05,
+  "ft_epochs": 15,
+  "rw_lr": 0.001,
+  "rw_epochs": 20,
+  "rounds": [
+    {
+      "round": 0,
+      "n_train": 3000,
+      "avg_mpc_reward": 6.9046728134155275,
+      "avg_rand_reward": 6.0100106477737425,
+      "pct_better": 70.0,
+      "reward_head_val": 0.18509647250175476
+    },
+    {
+      "round": 1,
+      "n_train_dynamics": 9000,
+      "n_train_reward": 9000,
+      "avg_mpc_reward": 8.925706624984741,
+      "avg_rand_reward": 5.875366306304931,
+      "pct_better": 80.0,
+      "dyn_val_loss": 0.03079736977815628,
+      "reward_head_val": 0.10622537136077881
+    },
+    {
+      "round": 2,
+      "n_train_dynamics": 15000,
+      "n_train_reward": 15000,
+      "avg_mpc_reward": 4.924977207183838,
+      "avg_rand_reward": 6.156847262382508,
+      "pct_better": 40.0,
+      "dyn_val_loss": 0.021639954298734665,
+      "reward_head_val": 0.14193391799926758
+    }
+  ]
+}
