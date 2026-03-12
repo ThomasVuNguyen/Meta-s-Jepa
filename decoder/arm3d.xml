@@ -1,0 +1,126 @@
+<mujoco model="arm3d_reach">
+  <!--
+    Simple 3-DOF Robot Arm for Sim-to-Real Transfer
+    ================================================
+    Joint 1: Base yaw   (Z-axis rotation)  → Servo 1
+    Joint 2: Shoulder   (Y-axis rotation)  → Servo 2
+    Joint 3: Elbow      (Y-axis rotation)  → Servo 3
+
+    Task: Reach a target sphere with the end-effector.
+    Camera: Third-person, 45° angle (matches real webcam placement).
+    Link lengths ~10cm to match small servo arm hardware.
+  -->
+
+  <compiler angle="radian" coordinate="local"/>
+
+  <option timestep="0.01" gravity="0 0 -9.81" integrator="RK4"/>
+
+  <default>
+    <joint armature="0.1" damping="1.0" limited="true"/>
+    <geom contype="0" conaffinity="0" rgba="0.4 0.4 0.4 1"/>
+    <motor ctrllimited="true" ctrlrange="-1 1"/>
+  </default>
+
+  <asset>
+    <texture name="grid_tex" type="2d" builtin="checker"
+             rgb1="0.15 0.15 0.2" rgb2="0.2 0.2 0.25"
+             width="512" height="512"/>
+    <material name="grid_mat" texture="grid_tex"
+              texrepeat="8 8" reflectance="0.1"/>
+    <material name="arm_mat" rgba="0.3 0.3 0.35 1" specular="0.5" shininess="0.3"/>
+    <material name="joint_mat" rgba="0.2 0.5 0.8 1" specular="0.6" shininess="0.4"/>
+    <material name="ee_mat" rgba="0.1 0.8 0.3 1" specular="0.7" shininess="0.5"/>
+    <material name="target_mat" rgba="0.9 0.2 0.15 1" specular="0.8" shininess="0.6"/>
+  </asset>
+
+  <worldbody>
+    <!-- Ground plane -->
+    <geom name="floor" type="plane" size="0.5 0.5 0.01"
+          material="grid_mat" pos="0 0 0"/>
+
+    <!-- Lighting -->
+    <light name="top_light" pos="0 0 1.5" dir="0 0 -1"
+           diffuse="0.8 0.8 0.8" specular="0.3 0.3 0.3" directional="true"/>
+    <light name="front_light" pos="0.5 -0.5 0.8" dir="-0.5 0.5 -0.5"
+           diffuse="0.4 0.4 0.4" directional="false"/>
+
+    <!-- Camera: third-person 45° angle (matches real webcam placement) -->
+    <camera name="fixed_cam" pos="0.35 -0.45 0.4" xyaxes="0.8 0.6 0 -0.2 0.3 0.9"
+            fovy="60"/>
+
+    <!-- ════════════════════════════════════════════════════ -->
+    <!-- TARGET SPHERE (randomly repositioned by env code)   -->
+    <!-- ════════════════════════════════════════════════════ -->
+    <body name="target" pos="0.15 0.0 0.15">
+      <geom name="target_geom" type="sphere" size="0.015"
+            material="target_mat" contype="0" conaffinity="0"/>
+      <!-- Site for distance computation -->
+      <site name="target_site" size="0.001"/>
+    </body>
+
+    <!-- ════════════════════════════════════════════════════ -->
+    <!-- ROBOT ARM                                           -->
+    <!-- ════════════════════════════════════════════════════ -->
+
+    <!-- Base mount (fixed to floor) -->
+    <body name="base" pos="0 0 0.02">
+      <geom name="base_geom" type="cylinder" size="0.035 0.02"
+            material="arm_mat"/>
+
+      <!-- Joint 1: Base yaw (Z-axis rotation) -->
+      <body name="link1" pos="0 0 0.02">
+        <joint name="base_yaw" type="hinge" axis="0 0 1"
+               range="-3.14159 3.14159" ref="0"/>
+        <geom name="link1_joint" type="sphere" size="0.018"
+              material="joint_mat"/>
+
+        <!-- Upper arm segment -->
+        <body name="upper_arm" pos="0 0 0.01">
+          <geom name="upper_arm_geom" type="capsule"
+                fromto="0 0 0 0.1 0 0.0" size="0.012"
+                material="arm_mat"/>
+
+          <!-- Joint 2: Shoulder pitch (Y-axis rotation) -->
+          <body name="link2" pos="0.1 0 0.0">
+            <joint name="shoulder_pitch" type="hinge" axis="0 1 0"
+                   range="-1.5708 1.5708" ref="0"/>
+            <geom name="link2_joint" type="sphere" size="0.015"
+                  material="joint_mat"/>
+
+            <!-- Forearm segment -->
+            <body name="forearm" pos="0 0 0">
+              <geom name="forearm_geom" type="capsule"
+                    fromto="0 0 0 0.08 0 0.0" size="0.010"
+                    material="arm_mat"/>
+
+              <!-- Joint 3: Elbow pitch (Y-axis rotation) -->
+              <body name="link3" pos="0.08 0 0.0">
+                <joint name="elbow_pitch" type="hinge" axis="0 1 0"
+                       range="-2.3562 2.3562" ref="0"/>
+                <geom name="link3_joint" type="sphere" size="0.012"
+                      material="joint_mat"/>
+
+                <!-- End-effector (finger tip) -->
+                <body name="end_effector" pos="0.06 0 0">
+                  <geom name="ee_geom" type="sphere" size="0.012"
+                        material="ee_mat"/>
+                  <!-- Site for distance computation -->
+                  <site name="ee_site" size="0.001"/>
+                </body>
+              </body>
+            </body>
+          </body>
+        </body>
+      </body>
+    </body>
+  </worldbody>
+
+  <!-- ════════════════════════════════════════════════════ -->
+  <!-- ACTUATORS: position-controlled (like real servos)   -->
+  <!-- ════════════════════════════════════════════════════ -->
+  <actuator>
+    <motor name="base_yaw_motor" joint="base_yaw" gear="5"/>
+    <motor name="shoulder_pitch_motor" joint="shoulder_pitch" gear="5"/>
+    <motor name="elbow_pitch_motor" joint="elbow_pitch" gear="5"/>
+  </actuator>
+</mujoco>
