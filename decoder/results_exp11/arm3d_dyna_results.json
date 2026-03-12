@@ -1,0 +1,57 @@
+{
+  "experiment": 11,
+  "env": "arm3d-reach",
+  "approach": "learned reward + dyna + mixed replay buffer",
+  "n_dyna_rounds": 4,
+  "rollouts_per_round": 60,
+  "rounds": [
+    {
+      "round": 0,
+      "n_train": 23000,
+      "avg_mpc_reward": 31.279275512695314,
+      "avg_rand_reward": 18.581287336349487,
+      "pct_better": 80.0,
+      "reward_head_val": 0.30479753017425537
+    },
+    {
+      "round": 1,
+      "n_train_dynamics": 29000,
+      "n_train_reward": 9000,
+      "avg_mpc_reward": 33.81216545104981,
+      "avg_rand_reward": 24.51244225502014,
+      "pct_better": 80.0,
+      "dyn_val_loss": 0.016386890783905983,
+      "reward_head_val": 0.08671959489583969
+    },
+    {
+      "round": 2,
+      "n_train_dynamics": 35000,
+      "n_train_reward": 15000,
+      "avg_mpc_reward": 33.15894365310669,
+      "avg_rand_reward": 14.103785085678101,
+      "pct_better": 90.0,
+      "dyn_val_loss": 0.009592496789991856,
+      "reward_head_val": 0.17724274098873138
+    },
+    {
+      "round": 3,
+      "n_train_dynamics": 41000,
+      "n_train_reward": 21000,
+      "avg_mpc_reward": 30.53098726272583,
+      "avg_rand_reward": 13.809009790420532,
+      "pct_better": 90.0,
+      "dyn_val_loss": 0.00979728251695633,
+      "reward_head_val": 2.2296555042266846
+    },
+    {
+      "round": 4,
+      "n_train_dynamics": 47000,
+      "n_train_reward": 27000,
+      "avg_mpc_reward": 45.35291862487793,
+      "avg_rand_reward": 13.883985900878907,
+      "pct_better": 100.0,
+      "dyn_val_loss": 0.008256807923316956,
+      "reward_head_val": 0.31916579604148865
+    }
+  ]
+}
